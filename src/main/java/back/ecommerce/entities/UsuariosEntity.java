@@ -20,5 +20,9 @@ public class UsuariosEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private String email;
+    private String password;
+    private String nombre;
+    private String apellido;
 
 }
