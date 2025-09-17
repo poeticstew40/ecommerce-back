@@ -5,7 +5,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -28,7 +28,7 @@ public class ProductosEntity {
     private Double precio;
     private Integer stock;
     
-    @ManyToOne
+    @OneToMany
     @JoinColumn(name = "categoria_id")//FK
     private CategoriasEntity categoria;
 }

@@ -31,6 +31,4 @@ public class PedidosEntity {
     @ManyToOne
     @JoinColumn(name = "usuario_id")//FK
     private UsuariosEntity usuario;
-
-
 }
