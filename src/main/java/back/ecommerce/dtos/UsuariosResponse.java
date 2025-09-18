@@ -11,4 +11,9 @@ import lombok.NoArgsConstructor;
 @Builder
 public class UsuariosResponse {
 
+    private Long id;
+    private String email;
+    private String nombre;
+    private String apellido;
+
 }

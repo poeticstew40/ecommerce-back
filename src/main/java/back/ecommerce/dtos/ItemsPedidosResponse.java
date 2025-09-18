@@ -11,4 +11,9 @@ import lombok.NoArgsConstructor;
 @Builder
 public class ItemsPedidosResponse {
 
+    private int cantidad;
+    private Double precioUnitario;
+    private String nombreProducto;
+    private String descripcionProducto;
+
 }

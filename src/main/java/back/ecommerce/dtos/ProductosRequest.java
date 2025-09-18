@@ -16,4 +16,5 @@ public class ProductosRequest {
     private Double precio;
     private Integer stock;
     private String categoriaId;
+    private String imagen;
 }

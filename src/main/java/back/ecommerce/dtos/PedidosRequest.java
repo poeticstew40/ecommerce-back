@@ -11,4 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class PedidosRequest {
 
+    private Double total;
+    private Long usuarioId;
+
 }

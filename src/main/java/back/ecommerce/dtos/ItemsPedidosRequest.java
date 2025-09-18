@@ -11,4 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class ItemsPedidosRequest {
 
+    private int cantidad;
+    private Long productoId;
+
 }
