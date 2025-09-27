@@ -12,7 +12,7 @@ CREATE TABLE pedidos (
     fecha_pedido TIMESTAMP NOT NULL,
     estado VARCHAR(255),
     total DECIMAL(10, 2) NOT NULL,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 );
 
 CREATE TABLE categorias (
