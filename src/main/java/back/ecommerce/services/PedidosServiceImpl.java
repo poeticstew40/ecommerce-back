@@ -33,7 +33,7 @@ public class PedidosServiceImpl implements PedidosService {
         final var entity = new PedidosEntity(); //create object(entity) to persist in database
         BeanUtils.copyProperties(pedido, entity); // copy properties from argument(pedido) in entity
 
-        final var usuario = usuariosRepository.findById(pedido.getUsuarioId()) // search user correspondig to pedido
+        final var usuario = usuariosRepository.findById(pedido.getUsuarioDni()) // search user correspondig to pedido
             .orElseThrow();
 
         entity.setFechaPedido(LocalDateTime.now());// set current date
@@ -45,6 +45,19 @@ public class PedidosServiceImpl implements PedidosService {
         final var response = new PedidosResponse();//create dto for response
 
         BeanUtils.copyProperties(pedidoCreated, response);//copy properties from entity(pedidoCreated) to response
+        response.setUsuarioDni(pedidoCreated.getUsuario().getDni());
+
+        if(pedidoCreated.getUsuario() != null) {
+            response.setUsuarioDni(pedidoCreated.getUsuario().getDni());
+        }
+
+            if (response.getItems() == null) {
+        response.setItems(new ArrayList<>());
+        }
+        // Si el estado es null, inicialízalo
+        if (response.getEstado() == null) {
+            response.setEstado("PENDIENTE");
+        }
         return response;
     }
 
@@ -58,6 +71,10 @@ public class PedidosServiceImpl implements PedidosService {
 
 
         BeanUtils.copyProperties(entityResponse, response); // copy properties from entity
+
+        if(entityResponse.getUsuario() != null) {
+        response.setUsuarioDni(entityResponse.getUsuario().getDni());
+        }
 
         //Get itemsPedidos response fron itemsPedidosEntity
         final List<ItemsPedidosResponse> itemsPedidosResponse = entityResponse.getItemsPedido()
@@ -74,6 +91,7 @@ public class PedidosServiceImpl implements PedidosService {
             .toList(); // convert to list
 
         response.setItems(itemsPedidosResponse);// set list of itemsPedidos
+
         return response;
     }
 
@@ -97,9 +115,6 @@ public class PedidosServiceImpl implements PedidosService {
     @Override
     @Transactional
     public void delete(Long id) {
-
-        
-        
         
         if(this.pedidosRepository.existsById(id)) {
             log.info("Eliminando pedido con id: {}", id);

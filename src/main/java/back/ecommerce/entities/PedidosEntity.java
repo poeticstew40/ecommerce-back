@@ -33,7 +33,7 @@ public class PedidosEntity {
     private Double total;
 
     @ManyToOne
-    @JoinColumn(name = "usuario_id")
+    @JoinColumn(name = "usuario_dni")
     private UsuariosEntity usuario;
 
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)

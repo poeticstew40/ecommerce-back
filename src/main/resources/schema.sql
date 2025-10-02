@@ -1,5 +1,5 @@
 CREATE TABLE usuarios (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    dni INT PRIMARY KEY NOT NULL,
     email VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
     nombre VARCHAR(255),
@@ -8,11 +8,11 @@ CREATE TABLE usuarios (
 
 CREATE TABLE pedidos (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    usuario_id INT NOT NULL,
+    usuario_dni INT NOT NULL,
     fecha_pedido TIMESTAMP NOT NULL,
     estado VARCHAR(255),
     total DECIMAL(10, 2) NOT NULL,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+    FOREIGN KEY (usuario_dni) REFERENCES usuarios(dni) ON DELETE CASCADE
 );
 
 CREATE TABLE categorias (

@@ -1,11 +1,13 @@
 package back.ecommerce.services;
 
-import back.ecommerce.dtos.UsuariosRequest;
-import back.ecommerce.dtos.UsuariosResponse;
-import back.ecommerce.repositories.UsuariosRepository;
-
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import back.ecommerce.dtos.UsuariosRequest;
+import back.ecommerce.dtos.UsuariosResponse;
+import back.ecommerce.entities.UsuariosEntity;
+import back.ecommerce.repositories.UsuariosRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,12 +21,24 @@ public class UsuariosServiceImpl implements UsuariosService {
 
     @Override
     public UsuariosResponse create(UsuariosRequest usuario) {
-        throw new UnsupportedOperationException("Unimplemented method 'create'");
+        final var entity = new UsuariosEntity(); //create object(entity) to persist in database
+        BeanUtils.copyProperties(usuario, entity); // copy properties from argument(usuario) in entity
+ 
+        this.usuariosRepository.save(entity);
+
+        return new UsuariosResponse();
     }
 
     @Override
-    public UsuariosResponse readById(Long id) {
-        throw new UnsupportedOperationException("Unimplemented method 'readById'");
+    public UsuariosResponse readById(Long dni) {
+        final var entityResponse = this.usuariosRepository.findById(dni)
+        .orElseThrow(() -> new IllegalArgumentException("No existe el usuario con id: " + dni)); // Find by id and handle errors
+        
+        final var response = new UsuariosResponse(); // create response object
+
+        BeanUtils.copyProperties(entityResponse, response); // copy properties from entity to response
+
+      return response;
     }
 
     @Override

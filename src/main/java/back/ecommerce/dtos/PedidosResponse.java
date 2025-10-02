@@ -14,9 +14,11 @@ import lombok.NoArgsConstructor;
 @Builder
 public class PedidosResponse {
 
+    private Long id;
     private String estado;
     private Double total;
     private LocalDateTime fechaPedido;
     private List<ItemsPedidosResponse> items;
+    private Long usuarioDni;
 
 }

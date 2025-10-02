@@ -7,11 +7,14 @@ public interface UsuariosService {
 
     //Crear
     UsuariosResponse create(UsuariosRequest usuario);
+
     //Obtener por id
-    UsuariosResponse readById(Long id);
+    UsuariosResponse readById(Long dni);
+
     //Actualizar
-    UsuariosResponse update(Long id, UsuariosRequest usuario);
+    UsuariosResponse update(Long dni, UsuariosRequest usuario);
+    
     //Eliminar
-    void delete(Long id);
+    void delete(Long dni);
 
 }

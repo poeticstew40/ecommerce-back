@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class UsuariosRequest {
 
+    private Long dni;
     private String email;
     private String password;
     private String nombre;

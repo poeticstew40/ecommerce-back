@@ -1,7 +1,8 @@
 -- Insertar datos de prueba en la tabla usuarios
-INSERT INTO usuarios (email, password, nombre, apellido) VALUES
-('juan.perez@example.com', 'pass123', 'Juan', 'Perez'),
-('maria.lopez@example.com', 'pass456', 'Maria', 'Lopez');
+INSERT INTO usuarios (dni, email, password, nombre, apellido) VALUES
+(543623413,'juan.perez@example.com', 'pass123', 'Juan', 'Perez'),
+(123412234,'maria.lopez@example.com', 'pass456', 'Maria', 'Lopez'),
+(222333444,'nicolas.gigena@gmail.com', '1234qsd', 'Nicolas', 'Gigena');
 
 -- Insertar datos de prueba en la tabla categorias
 INSERT INTO categorias (nombre) VALUES
@@ -17,9 +18,10 @@ INSERT INTO productos (nombre, descripcion, precio, stock, categoria_id) VALUES
 ('El Señor de los Anillos', 'Trilogía completa en tapa dura.', 75.20, 80, 3);
 
 -- Insertar datos de prueba en la tabla pedidos
-INSERT INTO pedidos (usuario_id, fecha_pedido, estado, total) VALUES
-(1, '2025-09-13 10:00:00', 'enviado', 974.99),
-(2, '2025-09-13 11:30:00', 'pendiente', 45.00);
+INSERT INTO pedidos (usuario_dni, fecha_pedido, estado, total) VALUES
+(543623413, '2025-09-13 10:00:00', 'enviado', 974.99),
+(123412234, '2025-09-13 11:30:00', 'pendiente', 45.00),
+(123412234, '2025-09-14 09:15:00', 'entregado', 129.50);
 
 -- Insertar datos de prueba en la tabla items_pedidos
 INSERT INTO items_pedidos (pedido_id, producto_id, cantidad, precio_unitario) VALUES

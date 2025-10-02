@@ -12,6 +12,6 @@ import lombok.NoArgsConstructor;
 public class PedidosRequest {
 
     private Double total;
-    private Long usuarioId;
+    private Long usuarioDni;
 
 }
