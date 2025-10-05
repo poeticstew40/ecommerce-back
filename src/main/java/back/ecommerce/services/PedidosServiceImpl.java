@@ -11,9 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 import back.ecommerce.dtos.ItemsPedidosResponse;
 import back.ecommerce.dtos.PedidosRequest;
 import back.ecommerce.dtos.PedidosResponse;
+import back.ecommerce.entities.ItemsPedidosEntity;
 import back.ecommerce.entities.PedidosEntity;
 import back.ecommerce.repositories.ItemsPedidosRepository;
 import back.ecommerce.repositories.PedidosRepository;
+import back.ecommerce.repositories.ProductosRepository;
 import back.ecommerce.repositories.UsuariosRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,39 +29,67 @@ public class PedidosServiceImpl implements PedidosService {
     private final PedidosRepository pedidosRepository;
     private final UsuariosRepository usuariosRepository;
     private final ItemsPedidosRepository itemsPedidosRepository;
+    private final ProductosRepository productosRepository;
 
     @Override
     public PedidosResponse create(PedidosRequest pedido) {
-        final var entity = new PedidosEntity(); //create object(entity) to persist in database
-        BeanUtils.copyProperties(pedido, entity); // copy properties from argument(pedido) in entity
 
-        final var usuario = usuariosRepository.findById(pedido.getUsuarioDni()) // search user correspondig to pedido
-            .orElseThrow();
+        var entity = new PedidosEntity();
+        BeanUtils.copyProperties(pedido, entity);
 
-        entity.setFechaPedido(LocalDateTime.now());// set current date
-        entity.setUsuario(usuario);// create relationship between pedido and usuarios
-        entity.setItemsPedido(new ArrayList<>());// set empty list
+        var usuario = usuariosRepository.findById(pedido.getUsuarioDni())
+            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + pedido.getUsuarioDni()));
 
-        var pedidoCreated = this.pedidosRepository.save(entity);//upsert id exist id update else insert
+        entity.setUsuario(usuario);
+        entity.setFechaPedido(LocalDateTime.now());
 
-        final var response = new PedidosResponse();//create dto for response
+        if (entity.getEstado() == null) {
+            entity.setEstado("PENDIENTE");
+        }
 
-        BeanUtils.copyProperties(pedidoCreated, response);//copy properties from entity(pedidoCreated) to response
+        entity.setItemsPedido(new ArrayList<>());
+
+        // 🔽 Mapear los ítems del request
+        if (pedido.getItems() != null && !pedido.getItems().isEmpty()) {
+            for (var itemReq : pedido.getItems()) {
+                var itemEntity = new ItemsPedidosEntity();
+
+                itemEntity.setCantidad(itemReq.getCantidad());
+
+                // Buscar el producto
+                var producto = productosRepository.findById(itemReq.getIdProducto())
+                    .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + itemReq.getIdProducto()));
+
+                itemEntity.setProducto(producto);
+                itemEntity.setPedido(entity);
+                itemEntity.setPrecioUnitario(producto.getPrecio()); // 👈 usa el precio del producto
+
+                entity.getItemsPedido().add(itemEntity);
+            }
+        }
+
+        var pedidoCreated = pedidosRepository.save(entity);
+
+        // 🔽 Construir respuesta
+        var response = new PedidosResponse();
+        BeanUtils.copyProperties(pedidoCreated, response);
         response.setUsuarioDni(pedidoCreated.getUsuario().getDni());
 
-        if(pedidoCreated.getUsuario() != null) {
-            response.setUsuarioDni(pedidoCreated.getUsuario().getDni());
-        }
+        var itemsResponse = pedidoCreated.getItemsPedido().stream().map(itemE ->
+            ItemsPedidosResponse.builder()
+                .cantidad(itemE.getCantidad())
+                .precioUnitario(itemE.getPrecioUnitario())
+                .nombreProducto(itemE.getProducto().getNombre())
+                .descripcionProducto(itemE.getProducto().getDescripcion())
+                .idProducto(itemE.getProducto().getId())
+                .build()
+        ).toList();
 
-            if (response.getItems() == null) {
-        response.setItems(new ArrayList<>());
-        }
-        // Si el estado es null, inicialízalo
-        if (response.getEstado() == null) {
-            response.setEstado("PENDIENTE");
-        }
+        response.setItems(itemsResponse);
+
         return response;
     }
+
 
     @Override
     public PedidosResponse readById(Long id) {
@@ -86,6 +116,7 @@ public class PedidosServiceImpl implements PedidosService {
                     .precioUnitario(itemsE.getPrecioUnitario())
                     .nombreProducto(itemsE.getProducto().getNombre())
                     .descripcionProducto(itemsE.getProducto().getDescripcion())
+                    .idProducto(itemsE.getProducto().getId())
                     .build()
             )
             .toList(); // convert to list
@@ -115,17 +146,13 @@ public class PedidosServiceImpl implements PedidosService {
     @Override
     @Transactional
     public void delete(Long id) {
-        
-        if(this.pedidosRepository.existsById(id)) {
+        var pedido = this.pedidosRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("No existe el pedido con id: " + id));
+     
             log.info("Eliminando pedido con id: {}", id);
 
-            this.itemsPedidosRepository.deleteById(id);
-
-            this.pedidosRepository.deleteById(id);
-        } else {
-            log.error("No existe el pedido con id: {}", id);
-            throw new IllegalArgumentException("No se puede eliminar porque no existe el pedido con id: " + id);
-        }
+            pedidosRepository.delete(pedido);
+   
     }
 
 }

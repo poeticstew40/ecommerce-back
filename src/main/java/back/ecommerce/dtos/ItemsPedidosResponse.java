@@ -15,5 +15,6 @@ public class ItemsPedidosResponse {
     private Double precioUnitario;
     private String nombreProducto;
     private String descripcionProducto;
+    private Long idProducto;
 
 }
