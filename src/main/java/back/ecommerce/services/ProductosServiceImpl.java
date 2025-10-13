@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import back.ecommerce.dtos.ProductosRequest;
 import back.ecommerce.dtos.ProductosResponse;
 import back.ecommerce.entities.ProductosEntity;
+import back.ecommerce.repositories.CategoriasRepository;
 import back.ecommerce.repositories.ProductosRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,16 +19,24 @@ import lombok.extern.slf4j.Slf4j;
 public class ProductosServiceImpl implements ProductosService{
 
     private final ProductosRepository productosRepository;
+    private final CategoriasRepository categoriasRepository;
 
     @Override
     public ProductosResponse create(ProductosRequest producto) {
         var entity = new ProductosEntity();
         BeanUtils.copyProperties(producto, entity);
 
+        var categoria = categoriasRepository.findById(producto.getCategoriaId())
+            .orElseThrow(() -> new IllegalArgumentException("Categoria no encontrada con id: " + producto.getCategoriaId()));
+
+        entity.setCategoria(categoria);
+
         var productoCreated = productosRepository.save(entity);
 
         var response = new ProductosResponse();
         BeanUtils.copyProperties(productoCreated, response);
+        response.setCategoriaNombre(productoCreated.getCategoria().getNombre());
+        response.setCategoriaId(productoCreated.getCategoria().getId());
 
 
         return response;
@@ -45,7 +54,6 @@ public class ProductosServiceImpl implements ProductosService{
             response.setCategoriaId(entityResponse.getCategoria().getId());
             response.setCategoriaNombre(entityResponse.getCategoria().getNombre());
         }
-
         
         return response;
     }
