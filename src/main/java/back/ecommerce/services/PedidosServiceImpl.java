@@ -69,7 +69,7 @@ public class PedidosServiceImpl implements PedidosService {
 
         var pedidoCreated = pedidosRepository.save(entity);
 
-        // 🔽 Construir respuesta
+        //  Construir respuesta
         var response = new PedidosResponse();
         BeanUtils.copyProperties(pedidoCreated, response);
         response.setUsuarioDni(pedidoCreated.getUsuario().getDni());

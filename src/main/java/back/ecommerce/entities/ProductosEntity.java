@@ -27,6 +27,7 @@ public class ProductosEntity {
     private String descripcion;
     private Double precio;
     private Integer stock;
+    private String imagen;
     
     @ManyToOne
     @JoinColumn(name = "categoria_id")//FK

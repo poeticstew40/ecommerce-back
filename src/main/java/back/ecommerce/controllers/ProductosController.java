@@ -4,6 +4,7 @@ import java.net.URI;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +16,7 @@ import back.ecommerce.dtos.ProductosRequest;
 import back.ecommerce.dtos.ProductosResponse;
 import back.ecommerce.services.ProductosService;
 import lombok.AllArgsConstructor;
+
 
 @RestController// use to expose RESTFULL
 @RequestMapping(path = "productos")//wat to get this controller
@@ -45,5 +47,14 @@ public class ProductosController {
     return ResponseEntity
         .created(location) // <- URI COMPLETA aquí
         .body(producto); // <- Incluir el recurso creado en el cuerpo es útil
+    }
+
+    @PatchMapping(path = "{id}")
+    public ResponseEntity <ProductosResponse> updateProductos(
+        @PathVariable Long id,
+        @RequestBody ProductosRequest request
+    ){
+        
+        return ResponseEntity.ok(this.productosService.update(id, request));
     }
 }
