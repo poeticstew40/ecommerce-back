@@ -13,7 +13,6 @@ import back.ecommerce.dtos.PedidosRequest;
 import back.ecommerce.dtos.PedidosResponse;
 import back.ecommerce.entities.ItemsPedidosEntity;
 import back.ecommerce.entities.PedidosEntity;
-import back.ecommerce.repositories.ItemsPedidosRepository;
 import back.ecommerce.repositories.PedidosRepository;
 import back.ecommerce.repositories.ProductosRepository;
 import back.ecommerce.repositories.UsuariosRepository;
@@ -28,14 +27,15 @@ public class PedidosServiceImpl implements PedidosService {
 
     private final PedidosRepository pedidosRepository;
     private final UsuariosRepository usuariosRepository;
-    private final ItemsPedidosRepository itemsPedidosRepository;
     private final ProductosRepository productosRepository;
 
+    //create pedido
     @Override
     public PedidosResponse create(PedidosRequest pedido) {
 
         var entity = new PedidosEntity();
         BeanUtils.copyProperties(pedido, entity);
+
 
         var usuario = usuariosRepository.findById(pedido.getUsuarioDni())
             .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + pedido.getUsuarioDni()));
@@ -53,7 +53,6 @@ public class PedidosServiceImpl implements PedidosService {
         if (pedido.getItems() != null && !pedido.getItems().isEmpty()) {
             for (var itemReq : pedido.getItems()) {
                 var itemEntity = new ItemsPedidosEntity();
-
                 itemEntity.setCantidad(itemReq.getCantidad());
 
                 // Buscar el producto
@@ -91,6 +90,7 @@ public class PedidosServiceImpl implements PedidosService {
     }
 
 
+    //get pedido by id
     @Override
     public PedidosResponse readById(Long id) {
 
@@ -126,6 +126,7 @@ public class PedidosServiceImpl implements PedidosService {
         return response;
     }
 
+    //update pedido
     @Override
     public PedidosResponse update(Long id, PedidosRequest pedido) {
         final var entityFromDB = this.pedidosRepository.findById(id) 
@@ -143,6 +144,7 @@ public class PedidosServiceImpl implements PedidosService {
         return response;
     }
 
+    //delete pedido
     @Override
     @Transactional
     public void delete(Long id) {

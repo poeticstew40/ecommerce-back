@@ -5,9 +5,11 @@ import back.ecommerce.dtos.ProductosResponse;
 
 public interface ProductosService {
     //Crear
-    ProductosResponse create(ProductosResponse producto); 
+    ProductosResponse create(ProductosRequest producto); 
     //Obtener por id
     ProductosResponse readById(Long id);
+    //Obtener por nombre
+    ProductosResponse readByName(String nombre);
     //Actualizar
     ProductosResponse update(Long id, ProductosRequest producto);
     //Eliminar
