@@ -1,11 +1,13 @@
 package back.ecommerce.services;
 
-import back.ecommerce.dtos.CategoriasRequest;
-import back.ecommerce.dtos.CategoriasResponse;
-import back.ecommerce.repositories.CategoriasRepository;
-
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import back.ecommerce.dtos.CategoriasRequest;
+import back.ecommerce.dtos.CategoriasResponse;
+import back.ecommerce.entities.CategoriasEntity;
+import back.ecommerce.repositories.CategoriasRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -17,24 +19,58 @@ public class CategoriasServiceImpl implements CategoriasService{
 
     private final CategoriasRepository categoriasRepository;
 
+    //create categoria
     @Override
     public CategoriasResponse create(CategoriasRequest categoria) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        var entity = new CategoriasEntity();
+        BeanUtils.copyProperties(categoria, entity);
+
+        var categoriaCreated = categoriasRepository.save(entity);
+
+        var response = new CategoriasResponse();
+        BeanUtils.copyProperties(categoriaCreated, response);
+
+        return response;
     }
 
+    //get categoria by id
     @Override
     public CategoriasResponse readById(Long id) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        final var entityResponse = this.categoriasRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Categoria no encontrada con id: " + id));
+
+        var response = new CategoriasResponse();
+        BeanUtils.copyProperties(entityResponse, response);
+
+        return response;
     }
 
     @Override
     public CategoriasResponse update(Long id, CategoriasRequest categoria) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        final var entityFromDB = this.categoriasRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Categoria no encontrada con id: " + id));
+
+        if (categoria.getNombre() != null && 
+            !categoria.getNombre().isBlank()) {
+            entityFromDB.setNombre(categoria.getNombre());
+        }
+        var categoriaActualizada = this.categoriasRepository.save(entityFromDB);
+
+        final var response = new CategoriasResponse();
+
+        BeanUtils.copyProperties(categoriaActualizada, response);
+
+        return response;
     }
 
     @Override
     public void delete(Long id) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        var categoria = this.categoriasRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Categoria no encontrada con id: " + id));
+
+        log.info("Eliminando categoria: {}", categoria.getNombre());
+
+        this.categoriasRepository.delete(categoria);
     }
 
 }
