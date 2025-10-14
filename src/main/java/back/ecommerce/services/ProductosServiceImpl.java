@@ -118,7 +118,12 @@ public ProductosResponse update(Long id, ProductosRequest productoRequest) {
 
     @Override
     public void delete(Long id) {
-        throw new UnsupportedOperationException("Unimplemented method 'delete'");
+        var producto = this.productosRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + id));
+
+        log.info("Eliminando producto: {}", producto.getNombre());
+
+        this.productosRepository.delete(producto);
     }
 
 
