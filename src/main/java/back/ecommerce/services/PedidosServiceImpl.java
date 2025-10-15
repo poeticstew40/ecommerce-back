@@ -2,7 +2,9 @@ package back.ecommerce.services;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -128,42 +130,50 @@ public class PedidosServiceImpl implements PedidosService {
 
     //update pedido
     @Override
-    public PedidosResponse update(Long id, PedidosRequest pedido) {
+    public PedidosResponse update(Long id, PedidosRequest pedidoRequest) {
+        // 1. Busca el pedido en la base de datos o lanza una excepción.
         final var entityFromDB = this.pedidosRepository.findById(id) 
-            .orElseThrow(() -> new IllegalArgumentException("No existe el pedido con id: " + id)); // Find by id and handle errors
+                .orElseThrow(() -> new IllegalArgumentException("No existe el pedido con id: " + id)); 
         
-        if (pedido.getEstado() != null && !pedido.getEstado().isBlank()) {
-            entityFromDB.setEstado(pedido.getEstado());
-        }
-        if (pedido.getTotal() != null){
-            entityFromDB.setTotal(pedido.getTotal());
-        }
-        if (pedido.getItems() != null && !pedido.getItems().isEmpty()) {
-            // Limpiar los ítems actuales
-            entityFromDB.getItemsPedido().clear();
-
-            // Agregar los nuevos ítems
-            for (var itemReq : pedido.getItems()) {
-                var itemEntity = new ItemsPedidosEntity();
-                itemEntity.setCantidad(itemReq.getCantidad());
-
-                // Buscar el producto
-                var producto = productosRepository.findById(itemReq.getIdProducto())
-                    .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + itemReq.getIdProducto()));
-
-                itemEntity.setProducto(producto);
-                itemEntity.setPedido(entityFromDB);
-                itemEntity.setPrecioUnitario(producto.getPrecio()); // 👈 usa el precio del producto
-
-                entityFromDB.getItemsPedido().add(itemEntity);
-            }
+        // 2. Lógica de actualización parcial: solo se actualiza el estado.
+        // Es la única operación segura y recomendada para un pedido ya creado.
+        if (pedidoRequest.getEstado() != null && !pedidoRequest.getEstado().isBlank()) {
+            entityFromDB.setEstado(pedidoRequest.getEstado());
         }
 
+        // 3. Guarda la entidad con su nuevo estado.
         var pedidoActualizado = this.pedidosRepository.save(entityFromDB);
 
+        // 4. Crea el DTO de respuesta y copia las propiedades básicas.
         final var response = new PedidosResponse();
         BeanUtils.copyProperties(pedidoActualizado, response);
 
+        // 5. Rellena la información del usuario en la respuesta.
+        if (pedidoActualizado.getUsuario() != null) {
+            response.setUsuarioDni(pedidoActualizado.getUsuario().getDni());
+            // Aquí asumo que tu PedidosResponse tiene un campo para el nombre del usuario
+            // response.setNombreUsuario(pedidoActualizado.getUsuario().getNombre());
+        }
+
+        // 6. Rellena la lista detallada de items del pedido en la respuesta.
+        if (pedidoActualizado.getItemsPedido() != null && !pedidoActualizado.getItemsPedido().isEmpty()) {
+            // Convierte la lista de ItemsPedidoEntity a una lista de ItemsPedidoResponse
+            response.setItems(pedidoActualizado.getItemsPedido().stream().map(itemEntity -> {
+                ItemsPedidosResponse itemDto = new ItemsPedidosResponse();
+                
+                itemDto.setCantidad(itemEntity.getCantidad());
+                itemDto.setPrecioUnitario(itemEntity.getPrecioUnitario());
+                
+                if (itemEntity.getProducto() != null) {
+                   // Asumo que tu ItemsPedidoResponse tiene un campo para el nombre del producto
+                   itemDto.setNombreProducto(itemEntity.getProducto().getNombre()); 
+                }
+                return itemDto;
+            }).collect(Collectors.toList()));
+        } else {
+            response.setItems(Collections.emptyList()); // Devuelve una lista vacía si no hay items
+        }
+        
         return response;
     }
 
