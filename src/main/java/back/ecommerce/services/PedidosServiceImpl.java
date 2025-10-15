@@ -131,15 +131,38 @@ public class PedidosServiceImpl implements PedidosService {
     public PedidosResponse update(Long id, PedidosRequest pedido) {
         final var entityFromDB = this.pedidosRepository.findById(id) 
             .orElseThrow(() -> new IllegalArgumentException("No existe el pedido con id: " + id)); // Find by id and handle errors
+        
+        if (pedido.getEstado() != null && !pedido.getEstado().isBlank()) {
+            entityFromDB.setEstado(pedido.getEstado());
+        }
+        if (pedido.getTotal() != null){
+            entityFromDB.setTotal(pedido.getTotal());
+        }
+        if (pedido.getItems() != null && !pedido.getItems().isEmpty()) {
+            // Limpiar los ítems actuales
+            entityFromDB.getItemsPedido().clear();
 
+            // Agregar los nuevos ítems
+            for (var itemReq : pedido.getItems()) {
+                var itemEntity = new ItemsPedidosEntity();
+                itemEntity.setCantidad(itemReq.getCantidad());
 
-        entityFromDB.setTotal(pedido.getTotal());//update fields from param pedido
+                // Buscar el producto
+                var producto = productosRepository.findById(itemReq.getIdProducto())
+                    .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + itemReq.getIdProducto()));
 
-        var pedidoCreated = this.pedidosRepository.save(entityFromDB);//upsert id exist id update else insert
+                itemEntity.setProducto(producto);
+                itemEntity.setPedido(entityFromDB);
+                itemEntity.setPrecioUnitario(producto.getPrecio()); // 👈 usa el precio del producto
 
-        final var response = new PedidosResponse();//create dto for response
+                entityFromDB.getItemsPedido().add(itemEntity);
+            }
+        }
 
-        BeanUtils.copyProperties(pedidoCreated, response);//copy properties from entity(pedidoCreated) to response
+        var pedidoActualizado = this.pedidosRepository.save(entityFromDB);
+
+        final var response = new PedidosResponse();
+        BeanUtils.copyProperties(pedidoActualizado, response);
 
         return response;
     }
