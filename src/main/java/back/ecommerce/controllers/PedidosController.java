@@ -3,6 +3,7 @@ package back.ecommerce.controllers;
 import java.net.URI;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -20,6 +21,7 @@ import lombok.AllArgsConstructor;
 
 @RestController// use to expose RESTFULL
 @RequestMapping(path = "pedidos")//wat to get this controller
+@CrossOrigin(origins = "*") // Permitir solicitudes desde cualquier origen
 @AllArgsConstructor
 public class PedidosController {
 
