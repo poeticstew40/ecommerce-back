@@ -1,4 +1,4 @@
-CREATE TABLE usuarios (
+CREATE TABLE IF NOT EXISTS usuarios (
     dni INT PRIMARY KEY NOT NULL,
     email VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
@@ -6,12 +6,12 @@ CREATE TABLE usuarios (
     apellido VARCHAR(255)
 );
 
-CREATE TABLE categorias (
+CREATE TABLE IF NOT EXISTS categorias (
     id INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE productos (
+CREATE TABLE IF NOT EXISTS productos (
     id INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
     descripcion TEXT,
@@ -22,7 +22,7 @@ CREATE TABLE productos (
     FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE SET NULL
 );
 
-CREATE TABLE pedidos (
+CREATE TABLE IF NOT EXISTS pedidos (
     id INT PRIMARY KEY AUTO_INCREMENT,
     usuario_dni INT NOT NULL,
     fecha_pedido TIMESTAMP NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE pedidos (
     FOREIGN KEY (usuario_dni) REFERENCES usuarios(dni) ON DELETE CASCADE
 );
 
-CREATE TABLE items_pedidos (
+CREATE TABLE IF NOT EXISTS items_pedidos (
     id INT PRIMARY KEY AUTO_INCREMENT,
     pedido_id INT NOT NULL,
     producto_id INT NOT NULL,
