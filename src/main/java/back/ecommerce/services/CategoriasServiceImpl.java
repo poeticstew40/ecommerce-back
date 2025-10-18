@@ -1,5 +1,8 @@
 package back.ecommerce.services;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +46,21 @@ public class CategoriasServiceImpl implements CategoriasService{
         BeanUtils.copyProperties(entityResponse, response);
 
         return response;
+    }
+
+    @Override // Anotación que indica que estás implementando un método de la interfaz
+    public List<CategoriasResponse> readAll() {
+        // 1. Llama al repositorio para traer todas las entidades de la DB.
+        List<CategoriasEntity> categoriasDesdeDB = this.categoriasRepository.findAll();
+
+        // 2. Usa un Stream para convertir cada entidad a su DTO correspondiente.
+        return categoriasDesdeDB.stream()
+            .map(entidad -> {
+                CategoriasResponse response = new CategoriasResponse();
+                BeanUtils.copyProperties(entidad, response);
+                return response;
+            })
+            .collect(Collectors.toList()); // 3. Junta todos los DTOs en una nueva lista.
     }
 
     @Override

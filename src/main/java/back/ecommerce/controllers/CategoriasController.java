@@ -1,6 +1,7 @@
 package back.ecommerce.controllers;
 
 import java.net.URI;
+import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -31,6 +32,15 @@ public class CategoriasController {
     @GetMapping(path = "{id}")//use to get data
     public ResponseEntity<CategoriasResponse> getCategoriasById (@PathVariable Long id) {
          return ResponseEntity.ok(this.categoriasService.readById(id));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<CategoriasResponse>> getAll() {
+        // 1. Llama al servicio para obtener la lista completa de DTOs.
+        final List<CategoriasResponse> categorias = this.categoriasService.readAll();
+        
+        // 2. Devuelve la lista en el cuerpo de la respuesta con un estado 200 OK.
+        return ResponseEntity.ok(categorias);
     }
     
 
