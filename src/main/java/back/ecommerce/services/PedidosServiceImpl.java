@@ -1,7 +1,7 @@
 package back.ecommerce.services;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,65 +31,72 @@ public class PedidosServiceImpl implements PedidosService {
     private final UsuariosRepository usuariosRepository;
     private final ProductosRepository productosRepository;
 
-    //create pedido
     @Override
-    public PedidosResponse create(PedidosRequest pedido) {
+    @Transactional
+    public PedidosResponse create(PedidosRequest pedidoRequest) {
 
-        var entity = new PedidosEntity();
-        BeanUtils.copyProperties(pedido, entity);
+    var pedidoEntity = new PedidosEntity();
+    var usuario = usuariosRepository.findById(pedidoRequest.getUsuarioDni())
+            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + pedidoRequest.getUsuarioDni()));
 
+    pedidoEntity.setUsuario(usuario);
+    pedidoEntity.setFechaPedido(LocalDateTime.now());
+    pedidoEntity.setEstado("PENDIENTE"); // Asigna el estado por defecto
 
-        var usuario = usuariosRepository.findById(pedido.getUsuarioDni())
-            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + pedido.getUsuarioDni()));
+    // 2. 💰 Prepara una variable para calcular el total
+    BigDecimal totalCalculado = BigDecimal.ZERO;
 
-        entity.setUsuario(usuario);
-        entity.setFechaPedido(LocalDateTime.now());
-
-        if (entity.getEstado() == null) {
-            entity.setEstado("PENDIENTE");
-        }
-
-        entity.setItemsPedido(new ArrayList<>());
-
-        // 🔽 Mapear los ítems del request
-        if (pedido.getItems() != null && !pedido.getItems().isEmpty()) {
-            for (var itemReq : pedido.getItems()) {
-                var itemEntity = new ItemsPedidosEntity();
-                itemEntity.setCantidad(itemReq.getCantidad());
-
-                // Buscar el producto
-                var producto = productosRepository.findById(itemReq.getIdProducto())
+    // 3. 🔽 Procesa los ítems y calcula el total sobre la marcha
+    if (pedidoRequest.getItems() != null && !pedidoRequest.getItems().isEmpty()) {
+        for (var itemReq : pedidoRequest.getItems()) {
+            var producto = productosRepository.findById(itemReq.getIdProducto())
                     .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + itemReq.getIdProducto()));
 
-                itemEntity.setProducto(producto);
-                itemEntity.setPedido(entity);
-                itemEntity.setPrecioUnitario(producto.getPrecio()); // 👈 usa el precio del producto
+            // (Opcional pero muy recomendado: verificar y descontar stock aquí)
 
-                entity.getItemsPedido().add(itemEntity);
-            }
+            var itemEntity = new ItemsPedidosEntity();
+            itemEntity.setCantidad(itemReq.getCantidad());
+            itemEntity.setProducto(producto);
+            // Usa el precio real de la base de datos, no el del request. ¡Esto ya lo hacías bien!
+            itemEntity.setPrecioUnitario(producto.getPrecio()); 
+
+            // Asocia el item al pedido
+            pedidoEntity.addItemPedido(itemEntity);
+
+            // Calcula el subtotal del item y lo suma al total general
+            BigDecimal cantidad = new BigDecimal(itemReq.getCantidad());
+            BigDecimal precioReal = BigDecimal.valueOf(producto.getPrecio()); // <-- Convertimos el Double a BigDecimal
+
+            BigDecimal subtotal = precioReal.multiply(cantidad); // Ahora sí funciona
+            totalCalculado = totalCalculado.add(subtotal);
         }
-
-        var pedidoCreated = pedidosRepository.save(entity);
-
-        //  Construir respuesta
-        var response = new PedidosResponse();
-        BeanUtils.copyProperties(pedidoCreated, response);
-        response.setUsuarioDni(pedidoCreated.getUsuario().getDni());
-
-        var itemsResponse = pedidoCreated.getItemsPedido().stream().map(itemE ->
-            ItemsPedidosResponse.builder()
-                .cantidad(itemE.getCantidad())
-                .precioUnitario(itemE.getPrecioUnitario())
-                .nombreProducto(itemE.getProducto().getNombre())
-                .descripcionProducto(itemE.getProducto().getDescripcion())
-                .idProducto(itemE.getProducto().getId())
-                .build()
-        ).toList();
-
-        response.setItems(itemsResponse);
-
-        return response;
     }
+
+    // 4. Asigna el total final, calculado y seguro, al pedido
+    pedidoEntity.setTotal(totalCalculado.doubleValue());
+
+    // 5. Guarda el pedido y sus items en la base de datos
+    var pedidoGuardado = pedidosRepository.save(pedidoEntity);
+
+    // 6. 📤 Construye y devuelve la respuesta (tu código para esto ya estaba perfecto)
+    var response = new PedidosResponse();
+    BeanUtils.copyProperties(pedidoGuardado, response);
+    response.setUsuarioDni(pedidoGuardado.getUsuario().getDni());
+
+    var itemsResponse = pedidoGuardado.getItemsPedido().stream().map(itemE ->
+        ItemsPedidosResponse.builder()
+            .cantidad(itemE.getCantidad())
+            .precioUnitario(itemE.getPrecioUnitario())
+            .nombreProducto(itemE.getProducto().getNombre())
+            .descripcionProducto(itemE.getProducto().getDescripcion())
+            .idProducto(itemE.getProducto().getId())
+            .build()
+    ).toList();
+
+    response.setItems(itemsResponse);
+
+    return response;
+}
 
 
     //get pedido by id
@@ -165,7 +172,7 @@ public PedidosResponse update(Long id, PedidosRequest pedidoRequest) {
                 itemDto.setPrecioUnitario(itemEntity.getPrecioUnitario());
                 
                 if (itemEntity.getProducto() != null) {
-                    
+
                    itemDto.setIdProducto(itemEntity.getProducto().getId()); 
                    itemDto.setNombreProducto(itemEntity.getProducto().getNombre()); 
                    itemDto.setDescripcionProducto(itemEntity.getProducto().getDescripcion());
