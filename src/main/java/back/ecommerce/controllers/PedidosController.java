@@ -34,27 +34,27 @@ public class PedidosController {
     }
 
     @PostMapping//use to create data
-    public ResponseEntity<?> postPedidos(@RequestBody PedidosRequest request){
+    public ResponseEntity<PedidosResponse> postPedidos(@RequestBody PedidosRequest request){
 
     final var pedido = this.pedidosService.create(request);
     
     // 1. Construir la URI completa y absoluta
     URI location = ServletUriComponentsBuilder
-        .fromCurrentRequest() // Toma la URL base actual (ej: http://localhost:8080/ecommerce/pedidos)
-        .path("/{id}") // Agrega el segmento /ID
-        .buildAndExpand(pedido.getId()) // Sustituye {id} por el valor real
-        .toUri();
-        
+            .fromCurrentRequest() // Toma la URL base actual (ej: http://localhost:8080/ecommerce/pedidos)
+            .path("/{id}") // Agrega el segmento /ID
+            .buildAndExpand(pedido.getId()) // Sustituye {id} por el valor real
+            .toUri();
+            
     // 2. Devolver 201 Created con el encabezado Location correcto Y el cuerpo del pedido
     return ResponseEntity
-        .created(location) // <- URI COMPLETA aquí
-        .body(pedido); // <- Incluir el recurso creado en el cuerpo es útil
+            .created(location) // <- URI COMPLETA aquí
+            .body(pedido); // <- Incluir el recurso creado en el cuerpo es útil
     }
 
     @PatchMapping(path = "{id}")//use to update data
     public ResponseEntity<PedidosResponse> updatePedidos(
-        @PathVariable Long id, 
-        @RequestBody PedidosRequest request
+            @PathVariable Long id, 
+            @RequestBody PedidosRequest request
     ){
         return ResponseEntity.ok(this.pedidosService.update(id, request));
     }
