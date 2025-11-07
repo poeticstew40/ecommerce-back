@@ -11,6 +11,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 @Entity
 @Table(name = "categorias")
 @AllArgsConstructor
@@ -24,5 +26,6 @@ public class CategoriasEntity {
     private String nombre;
 
     @OneToMany(mappedBy = "categoria")
+    @JsonManagedReference
     private List<ProductosEntity> productos;
 }
