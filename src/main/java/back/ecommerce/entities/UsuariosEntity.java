@@ -30,7 +30,7 @@ public class UsuariosEntity {
     private String apellido;
 
     @OneToMany(mappedBy = "usuario")
-    @JsonManagedReference
+    @JsonManagedReference("usuario-pedido")
     private List<PedidosEntity> pedidos;
 
 }

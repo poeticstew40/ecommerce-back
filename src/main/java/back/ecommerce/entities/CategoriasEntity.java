@@ -29,6 +29,6 @@ public class CategoriasEntity {
     private String nombre;
 
     @OneToMany(mappedBy = "categoria")
-    @JsonManagedReference
+    @JsonManagedReference("categoria-producto")
     private List<ProductosEntity> productos;
 }

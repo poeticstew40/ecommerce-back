@@ -31,11 +31,12 @@ public class ItemsPedidosEntity {
 
     @ManyToOne
     @JoinColumn(name = "pedido_id")
-    @JsonBackReference
+    @JsonBackReference("pedido-item")
     private PedidosEntity pedido;
 
     @ManyToOne
     @JoinColumn(name = "producto_id")
+    @JsonBackReference("producto-item")
     private ProductosEntity producto;
 
 }

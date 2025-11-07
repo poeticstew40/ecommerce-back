@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
@@ -38,9 +39,10 @@ public class PedidosEntity {
 
     @ManyToOne
     @JoinColumn(name = "usuario_dni")
+    @JsonBackReference("usuario-pedido")
     private UsuariosEntity usuario;
 
-    @JsonManagedReference
+    @JsonManagedReference("pedido-item")
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ItemsPedidosEntity> itemsPedido;
 
