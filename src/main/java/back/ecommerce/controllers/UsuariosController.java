@@ -23,7 +23,7 @@ public class UsuariosController {
 
     @GetMapping(path = "{dni}")//use to get data
     public ResponseEntity<UsuariosResponse> getUsuarios(@PathVariable Long dni) {
-         return ResponseEntity.ok(this.usuariosService.readById(dni));
+         return ResponseEntity.ok(this.usuariosService.readByDni(dni));
     }
     
 

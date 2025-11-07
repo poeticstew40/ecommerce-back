@@ -9,8 +9,8 @@ public interface UsuariosService {
 
     //Crear
     UsuariosResponse create(UsuariosRequest usuario);
-
-    //obtener todos
+    
+    //Obtener todos
     List<UsuariosResponse> readAll();
 
     //Obtener por id
