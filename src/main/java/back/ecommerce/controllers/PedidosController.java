@@ -1,6 +1,7 @@
 package back.ecommerce.controllers;
 
 import java.net.URI;
+import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -64,5 +65,9 @@ public class PedidosController {
         return ResponseEntity.noContent().build();
     }
 
-
+    @GetMapping(path = "usuario/{dni}")
+    public ResponseEntity<List<PedidosResponse>> getPedidosByUsuarioDni(@PathVariable Integer dni) {
+        final List<PedidosResponse> pedidos = this.pedidosService.findByUsuarioDni(dni);
+        return ResponseEntity.ok(pedidos);
+    }
 }

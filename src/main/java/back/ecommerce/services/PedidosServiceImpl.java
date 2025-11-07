@@ -203,4 +203,32 @@ public PedidosResponse update(Long id, PedidosRequest pedidoRequest) {
    
     }
 
+    @Override
+    public List<PedidosResponse> findByUsuarioDni(Integer dni) {
+        List<PedidosEntity> pedidosEntities = this.pedidosRepository.findByUsuarioDni(dni);
+
+        return pedidosEntities.stream()
+            .map(pedidoEntity -> {
+                PedidosResponse response = new PedidosResponse();
+                BeanUtils.copyProperties(pedidoEntity, response);
+                response.setUsuarioDni(pedidoEntity.getUsuario().getDni());
+
+                List<ItemsPedidosResponse> itemsResponse = pedidoEntity.getItemsPedido().stream()
+                    .map(itemE ->
+                        ItemsPedidosResponse.builder()
+                            .cantidad(itemE.getCantidad())
+                            .precioUnitario(itemE.getPrecioUnitario())
+                            .nombreProducto(itemE.getProducto().getNombre())
+                            .descripcionProducto(itemE.getProducto().getDescripcion())
+                            .idProducto(itemE.getProducto().getId())
+                            .build()
+                    ).toList();
+
+                response.setItems(itemsResponse);
+
+                return response;
+            })
+            .toList();
+    }
+
 }

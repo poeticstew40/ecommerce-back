@@ -1,5 +1,7 @@
 package back.ecommerce.services;
 
+import java.util.List;
+
 import back.ecommerce.dtos.PedidosRequest;
 import back.ecommerce.dtos.PedidosResponse;
 
@@ -16,5 +18,8 @@ public interface PedidosService {
     
     //Eliminar
     void delete(Long id);
+
+    //lista de pedidos de un usuario por dni
+    List<PedidosResponse> findByUsuarioDni(Integer dni);
 
 }

@@ -3,6 +3,7 @@ package back.ecommerce.controllers;
 import java.net.URI;
 import java.util.List;
 
+import org.apache.catalina.connector.Response;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -72,4 +73,5 @@ public class CategoriasController {
         this.categoriasService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
 }
