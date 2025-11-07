@@ -1,5 +1,7 @@
 package back.ecommerce.services;
 
+import java.util.List;
+
 import back.ecommerce.dtos.UsuariosRequest;
 import back.ecommerce.dtos.UsuariosResponse;
 
@@ -8,8 +10,11 @@ public interface UsuariosService {
     //Crear
     UsuariosResponse create(UsuariosRequest usuario);
 
+    //obtener todos
+    List<UsuariosResponse> readAll();
+
     //Obtener por id
-    UsuariosResponse readById(Long dni);
+    UsuariosResponse readByDni(Long dni);
 
     //Actualizar
     UsuariosResponse update(Long dni, UsuariosRequest usuario);

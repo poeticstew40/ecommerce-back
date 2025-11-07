@@ -11,6 +11,9 @@ import back.ecommerce.repositories.UsuariosRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.List; // <-- Importante: Agregar esta línea
+import java.util.stream.Collectors; // <-- Importante: Agregar esta línea
+
 @Service
 @Transactional
 @Slf4j
@@ -21,34 +24,70 @@ public class UsuariosServiceImpl implements UsuariosService {
 
     @Override
     public UsuariosResponse create(UsuariosRequest usuario) {
-        final var entity = new UsuariosEntity(); //create object(entity) to persist in database
-        BeanUtils.copyProperties(usuario, entity); // copy properties from argument(usuario) in entity
+        if (usuariosRepository.findById(usuario.getDni()).isPresent()) {
+            throw new IllegalArgumentException("Ya existe un usuario con el DNI: " + usuario.getDni());
+        }
+
+        final var entity = new UsuariosEntity();
+        BeanUtils.copyProperties(usuario, entity);
  
-        this.usuariosRepository.save(entity);
+        var usuarioGuardado = this.usuariosRepository.save(entity);
 
-        return new UsuariosResponse();
+        return convertirEntidadAResponse(usuarioGuardado);
     }
 
     @Override
-    public UsuariosResponse readById(Long dni) {
+    public List<UsuariosResponse> readAll() {
+        return usuariosRepository.findAll().stream()
+                .map(this::convertirEntidadAResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public UsuariosResponse readByDni(Long dni) {
         final var entityResponse = this.usuariosRepository.findById(dni)
-        .orElseThrow(() -> new IllegalArgumentException("No existe el usuario con id: " + dni)); // Find by id and handle errors
+            .orElseThrow(() -> new IllegalArgumentException("No existe el usuario con id: " + dni));
         
-        final var response = new UsuariosResponse(); // create response object
-
-        BeanUtils.copyProperties(entityResponse, response); // copy properties from entity to response
-
-      return response;
+        return convertirEntidadAResponse(entityResponse);
     }
 
     @Override
-    public UsuariosResponse update(Long id, UsuariosRequest usuario) {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public UsuariosResponse update(Long dni, UsuariosRequest request) {
+        final var entidad = this.usuariosRepository.findById(dni)
+            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + dni));
+
+        if (request.getNombre() != null && !request.getNombre().isBlank()) {
+            entidad.setNombre(request.getNombre());
+        }
+        if (request.getApellido() != null && !request.getApellido().isBlank()) {
+            entidad.setApellido(request.getApellido());
+        }
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            entidad.setEmail(request.getEmail());
+        }
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            // encriptar la password antes de guardarla (por hacer)
+            entidad.setPassword(request.getPassword());
+        }
+
+        var usuarioActualizado = usuariosRepository.save(entidad);
+        return convertirEntidadAResponse(usuarioActualizado);
     }
 
     @Override
-    public void delete(Long id) {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public void delete(Long dni) {
+        final var entidad = this.usuariosRepository.findById(dni)
+            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + dni));
+        
+        this.usuariosRepository.delete(entidad);
     }
 
+    private UsuariosResponse convertirEntidadAResponse(UsuariosEntity entidad) {
+        return UsuariosResponse.builder()
+                .dni(entidad.getDni())
+                .nombre(entidad.getNombre())
+                .apellido(entidad.getApellido())
+                .email(entidad.getEmail())
+                .build();
+    }
 }
