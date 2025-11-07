@@ -1,5 +1,7 @@
 package back.ecommerce.services;
 
+import java.util.List;
+
 import back.ecommerce.dtos.ProductosRequest;
 import back.ecommerce.dtos.ProductosResponse;
 
@@ -14,5 +16,7 @@ public interface ProductosService {
     ProductosResponse update(Long id, ProductosRequest producto);
     //Eliminar
     void delete(Long id);
+    //Obtener todos
+    List<ProductosResponse> readAll();
     
 }

@@ -1,5 +1,8 @@
 package back.ecommerce.services;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -124,6 +127,23 @@ public ProductosResponse update(Long id, ProductosRequest productoRequest) {
         log.info("Eliminando producto: {}", producto.getNombre());
 
         this.productosRepository.delete(producto);
+    }
+
+    @Override
+    public List<ProductosResponse> readAll() {
+        List<ProductosEntity> entityFromDB = this.productosRepository.findAll();
+
+        return entityFromDB.stream()
+            .map(entidad -> {
+                ProductosResponse response = new ProductosResponse();
+                BeanUtils.copyProperties(entidad, response);
+                if (entidad.getCategoria() != null) {
+                    response.setCategoriaId(entidad.getCategoria().getId());
+                    response.setCategoriaNombre(entidad.getCategoria().getNombre());
+                }
+                return response;
+            })
+            .collect(Collectors.toList());
     }
 
 

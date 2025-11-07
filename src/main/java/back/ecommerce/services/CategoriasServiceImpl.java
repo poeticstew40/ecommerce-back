@@ -48,9 +48,8 @@ public class CategoriasServiceImpl implements CategoriasService{
         return response;
     }
 
-    @Override // Anotación que indica que estás implementando un método de la interfaz
+    @Override
     public List<CategoriasResponse> readAll() {
-        // 1. Llama al repositorio para traer todas las entidades de la DB.
         List<CategoriasEntity> entityFromDB = this.categoriasRepository.findAll();
 
         // 2. Usa un Stream para convertir cada entidad a su DTO correspondiente.

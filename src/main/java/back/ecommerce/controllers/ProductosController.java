@@ -1,6 +1,7 @@
 package back.ecommerce.controllers;
 
 import java.net.URI;
+import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -18,6 +19,7 @@ import back.ecommerce.dtos.ProductosRequest;
 import back.ecommerce.dtos.ProductosResponse;
 import back.ecommerce.services.ProductosService;
 import lombok.AllArgsConstructor;
+
 
 
 @RestController// use to expose RESTFULL
@@ -65,6 +67,13 @@ public class ProductosController {
     public ResponseEntity<Void> deleteProductos(@PathVariable Long id){
         this.productosService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping()
+    public ResponseEntity<List<ProductosResponse>>getAll() {
+        final List<ProductosResponse> productos = this.productosService.readAll();
+
+        return ResponseEntity.ok(productos);
     }
     
 }
