@@ -20,6 +20,6 @@ public interface PedidosService {
     void delete(Long id);
 
     //lista de pedidos de un usuario por dni
-    List<PedidosResponse> findByUsuarioDni(Integer dni);
+    List<PedidosResponse> findByUsuarioDni(Long dni);
 
 }

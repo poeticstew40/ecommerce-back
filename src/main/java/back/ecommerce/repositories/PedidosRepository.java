@@ -19,6 +19,6 @@ public interface PedidosRepository extends JpaRepository<PedidosEntity, Long>{
     @Query("DELETE FROM PedidosEntity WHERE id=:id")
     void deleteById(Long id);
 
-    List<PedidosEntity> findByUsuarioDni(Integer dni);
+    List<PedidosEntity> findByUsuarioDni(Long dni);
 
 }

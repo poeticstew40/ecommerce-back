@@ -204,7 +204,7 @@ public PedidosResponse update(Long id, PedidosRequest pedidoRequest) {
     }
 
     @Override
-    public List<PedidosResponse> findByUsuarioDni(Integer dni) {
+    public List<PedidosResponse> findByUsuarioDni(Long dni) {
         List<PedidosEntity> pedidosEntities = this.pedidosRepository.findByUsuarioDni(dni);
 
         return pedidosEntities.stream()

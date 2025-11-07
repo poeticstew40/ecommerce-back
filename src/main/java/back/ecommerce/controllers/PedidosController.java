@@ -66,7 +66,7 @@ public class PedidosController {
     }
 
     @GetMapping(path = "usuario/{dni}")
-    public ResponseEntity<List<PedidosResponse>> getPedidosByUsuarioDni(@PathVariable Integer dni) {
+    public ResponseEntity<List<PedidosResponse>> getPedidosByUsuarioDni(@PathVariable Long dni) {
         final List<PedidosResponse> pedidos = this.pedidosService.findByUsuarioDni(dni);
         return ResponseEntity.ok(pedidos);
     }
