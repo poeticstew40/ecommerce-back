@@ -1,22 +1,20 @@
 package back.ecommerce.entities;
 
-import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-
+import com.fasterxml.jackson.annotation.JsonManagedReference; // <-- IMPORT
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToMany; // <-- IMPORT
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.util.List; // <-- IMPORT
 
 @Getter
 @Setter
@@ -36,11 +34,13 @@ public class ProductosEntity {
     private Integer stock;
     private String imagen;
     
+    // "Hijo" de la relación con Categorias
     @ManyToOne
-    @JoinColumn(name = "categoria_id")//FK
+    @JoinColumn(name = "categoria_id")
     @JsonBackReference("categoria-producto")
     private CategoriasEntity categoria;
 
+    // "Padre" de la relación con ItemsPedidos
     @OneToMany(mappedBy = "producto")
     @JsonManagedReference("producto-item")
     private List<ItemsPedidosEntity> itemsPedido;

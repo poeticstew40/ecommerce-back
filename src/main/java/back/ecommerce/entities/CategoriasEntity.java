@@ -10,9 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
 import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 @Getter
@@ -28,6 +26,7 @@ public class CategoriasEntity {
     private Long id;
     private String nombre;
 
+    // "Padre" de la relación con Productos
     @OneToMany(mappedBy = "categoria")
     @JsonManagedReference("categoria-producto")
     private List<ProductosEntity> productos;
