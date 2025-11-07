@@ -46,7 +46,7 @@ public class CategoriasController {
     
 
     @PostMapping
-    public ResponseEntity<?> postCategorias(@RequestBody CategoriasRequest request){ 
+    public ResponseEntity<CategoriasResponse> postCategorias(@RequestBody CategoriasRequest request){ 
         
         final var categoria = this.categoriasService.create(request);
     

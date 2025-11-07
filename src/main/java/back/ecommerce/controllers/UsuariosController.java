@@ -24,7 +24,7 @@ public class UsuariosController {
 
     // --- C: CREATE (Crear) ---
     @PostMapping
-    public ResponseEntity<?> crearUsuario(@RequestBody UsuariosRequest request) {
+    public ResponseEntity<UsuariosResponse> crearUsuario(@RequestBody UsuariosRequest request) {
         
         // 1. Llama al servicio para crear el usuario
         final var usuarioCreado = usuariosService.create(request);

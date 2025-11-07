@@ -40,7 +40,7 @@ public class ProductosController {
     }
 
     @PostMapping
-    public ResponseEntity<?> postProductos(@RequestBody ProductosRequest request){ 
+    public ResponseEntity<ProductosResponse> postProductos(@RequestBody ProductosRequest request){ 
         
     final var producto = this.productosService.create(request);
 
