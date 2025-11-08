@@ -1,6 +1,7 @@
 package back.ecommerce.entities;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -28,13 +29,11 @@ public class ItemsPedidosEntity {
     private int cantidad;
     private Double precioUnitario;
 
-    // "Hijo" de la relación con Pedidos
     @ManyToOne
     @JoinColumn(name = "pedido_id")
     @JsonBackReference("pedido-item")
     private PedidosEntity pedido;
 
-    // "Hijo" de la relación con Productos
     @ManyToOne
     @JoinColumn(name = "producto_id")
     @JsonBackReference("producto-item")

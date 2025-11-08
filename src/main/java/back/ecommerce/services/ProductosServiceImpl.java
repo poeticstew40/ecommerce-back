@@ -25,7 +25,6 @@ public class ProductosServiceImpl implements ProductosService{
     private final CategoriasRepository categoriasRepository;
 
 
-    //create producto
     @Override
     public ProductosResponse create(ProductosRequest producto) {
         var entity = new ProductosEntity();
@@ -47,7 +46,7 @@ public class ProductosServiceImpl implements ProductosService{
         return response;
     }
 
-    //get producto by id
+
     @Override
     public ProductosResponse readById(Long id) {
         final var entityResponse = this.productosRepository.findById(id)
@@ -72,11 +71,10 @@ public class ProductosServiceImpl implements ProductosService{
 
 @Override
 public ProductosResponse update(Long id, ProductosRequest productoRequest) {
-    // 1. Busca el producto en la base de datos o lanza una excepción.
+    
     final var entityFromDB = this.productosRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + id));
 
-    // 2. Aplica las actualizaciones campo por campo, solo si no son nulos.
     if (productoRequest.getNombre() != null && !productoRequest.getNombre().isBlank()) {
         entityFromDB.setNombre(productoRequest.getNombre());
     }
@@ -97,17 +95,14 @@ public ProductosResponse update(Long id, ProductosRequest productoRequest) {
         entityFromDB.setImagen(productoRequest.getImagen());
     }
 
-    // 3. Mantiene la lógica para actualizar la categoría si se provee una nueva.
     if (productoRequest.getCategoriaId() != null) {
         var categoria = categoriasRepository.findById(productoRequest.getCategoriaId())
             .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + productoRequest.getCategoriaId()));
         entityFromDB.setCategoria(categoria);
     }
     
-    // 4. Guarda la entidad con los cambios aplicados.
     var productoActualizado = this.productosRepository.save(entityFromDB);
 
-    // 5. Crea y rellena el DTO de respuesta.
     final var response = new ProductosResponse();
     BeanUtils.copyProperties(productoActualizado, response);
 

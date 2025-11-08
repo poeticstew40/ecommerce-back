@@ -3,7 +3,6 @@ package back.ecommerce.controllers;
 import java.net.URI;
 import java.util.List;
 
-import org.apache.catalina.connector.Response;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,24 +22,24 @@ import lombok.AllArgsConstructor;
 
 
 @RestController
-@RequestMapping(path = "categorias")//use to get this controller
-@CrossOrigin(origins = "*") // Permitir solicitudes desde cualquier origen
+@RequestMapping(path = "categorias")
+@CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class CategoriasController {
 
     private final CategoriasService categoriasService;
     
-    @GetMapping(path = "{id}")//use to get data
+    @GetMapping(path = "{id}")
     public ResponseEntity<CategoriasResponse> getCategoriasById (@PathVariable Long id) {
          return ResponseEntity.ok(this.categoriasService.readById(id));
     }
 
     @GetMapping
     public ResponseEntity<List<CategoriasResponse>> getAll() {
-        // 1. Llama al servicio para obtener la lista completa de DTOs.
+        
         final List<CategoriasResponse> categorias = this.categoriasService.readAll();
         
-        // 2. Devuelve la lista en el cuerpo de la respuesta con un estado 200 OK.
+        
         return ResponseEntity.ok(categorias);
     }
     
@@ -51,13 +50,13 @@ public class CategoriasController {
         final var categoria = this.categoriasService.create(request);
     
         URI location = ServletUriComponentsBuilder
-            .fromCurrentRequest() // Toma la URL base actual (ej: http://localhost:8080/ecommerce/categorias)
+            .fromCurrentRequest() // Toma la URL base actual
             .path("/{id}") // Agrega el segmento /ID
             .buildAndExpand(categoria.getId()) // Sustituye {id} por el valor real
             .toUri();
         return ResponseEntity
-            .created(location) // <- URI COMPLETA aquí
-            .body(categoria); // <- Incluir el recurso creado en el cuerpo es útil
+            .created(location)
+            .body(categoria);
         }
 
     @PatchMapping(path = "{id}")

@@ -11,8 +11,8 @@ import back.ecommerce.repositories.UsuariosRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.List; // <-- Importante: Agregar esta línea
-import java.util.stream.Collectors; // <-- Importante: Agregar esta línea
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional

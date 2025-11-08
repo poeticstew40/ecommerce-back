@@ -23,15 +23,15 @@ import lombok.AllArgsConstructor;
 
 
 
-@RestController// use to expose RESTFULL
-@RequestMapping(path = "productos")//wat to get this controller
-@CrossOrigin(origins = "*") // Permitir solicitudes desde cualquier origen
+@RestController
+@RequestMapping(path = "productos")
+@CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class ProductosController {
 
     private final ProductosService productosService;
 
-    @GetMapping(path = "{id}")//use to get data
+    @GetMapping(path = "{id}")
     public ResponseEntity<ProductosResponse> getProductosById (@PathVariable Long id) {
          return ResponseEntity.ok(this.productosService.readById(id));
     }
@@ -47,8 +47,8 @@ public class ProductosController {
         .buildAndExpand(producto.getId()) // Sustituye {id} por el valor real
         .toUri();
     return ResponseEntity
-        .created(location) // <- URI COMPLETA aquí
-        .body(producto); // <- Incluir el recurso creado en el cuerpo es útil
+        .created(location)
+        .body(producto);
     }
 
     @PatchMapping(path = "{id}")
