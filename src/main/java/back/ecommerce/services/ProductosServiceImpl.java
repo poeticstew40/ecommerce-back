@@ -146,5 +146,35 @@ public ProductosResponse update(Long id, ProductosRequest productoRequest) {
             .collect(Collectors.toList());
     }
 
+    
+    @Override
+    public List<ProductosResponse> buscarPorNombre(String termino) {
+        List<ProductosEntity> productosEncontrados = this.productosRepository.findByNombreContainingIgnoreCase(termino);
+        
+        return productosEncontrados.stream()
+            .map(this::convertirEntidadAResponse) // Llama al helper
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductosResponse> buscarPorCategoria(Long categoriaId) {
+        List<ProductosEntity> productosEncontrados = this.productosRepository.findByCategoriaId(categoriaId);
+
+        return productosEncontrados.stream()
+            .map(this::convertirEntidadAResponse) // Llama al helper
+            .collect(Collectors.toList());
+    }
+
+    private ProductosResponse convertirEntidadAResponse(ProductosEntity entidad) {
+        ProductosResponse response = new ProductosResponse();
+        BeanUtils.copyProperties(entidad, response);
+        
+        if (entidad.getCategoria() != null) {
+            response.setCategoriaId(entidad.getCategoria().getId());
+            response.setCategoriaNombre(entidad.getCategoria().getNombre());
+        }
+        
+        return response;
+    }
 
 }

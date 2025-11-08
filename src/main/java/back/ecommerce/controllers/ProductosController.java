@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -30,10 +31,6 @@ public class ProductosController {
 
     private final ProductosService productosService;
 
-    //@GetMapping(path = "{nombre}")//use to get data
-    //public ResponseEntity<ProductosResponse> getProductosByName(@PathVariable String nombre) {
-    //     return ResponseEntity.ok(this.productosService.readByName(nombre));
-    //}
     @GetMapping(path = "{id}")//use to get data
     public ResponseEntity<ProductosResponse> getProductosById (@PathVariable Long id) {
          return ResponseEntity.ok(this.productosService.readById(id));
@@ -74,6 +71,20 @@ public class ProductosController {
         final List<ProductosResponse> productos = this.productosService.readAll();
 
         return ResponseEntity.ok(productos);
+    }
+
+    @GetMapping(path = "/buscar")
+    public ResponseEntity<List<ProductosResponse>> buscarProductos(
+            @RequestParam("q") String terminoBusqueda) {
+        
+        return ResponseEntity.ok(this.productosService.buscarPorNombre(terminoBusqueda));
+    }
+
+    @GetMapping(path = "/categoria/{id}")
+    public ResponseEntity<List<ProductosResponse>> obtenerProductosPorCategoria(
+            @PathVariable Long id) {
+        
+        return ResponseEntity.ok(this.productosService.buscarPorCategoria(id));
     }
     
 }

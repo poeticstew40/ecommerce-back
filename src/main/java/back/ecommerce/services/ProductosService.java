@@ -16,7 +16,11 @@ public interface ProductosService {
     ProductosResponse update(Long id, ProductosRequest producto);
     //Eliminar
     void delete(Long id);
-    //Obtener todos
+    //obtener todos
     List<ProductosResponse> readAll();
+    //lista de productos por nombre
+    List<ProductosResponse> buscarPorNombre(String termino);
+    //lista de productos por categoria
+    List<ProductosResponse> buscarPorCategoria(Long categoriaId);
     
 }
