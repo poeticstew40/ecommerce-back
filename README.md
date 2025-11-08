@@ -1,8 +1,18 @@
 # 📔 Documentación de la API - E-commerce
 
-**URL Base (Producción):** `https://ecommerce-back-m9zg.onrender.com/ecommerce`
+Este backend tiene dos entornos:
 
-**Nota:** La API en producción (Render) se apaga después de 15 minutos de inactividad. Si una petición falla, esperá 30 segundos y volvé a intentarlo.
+### 1. Entorno de Producción (Online)
+* **URL Base:** `https://ecommerce-back-m9zg.onrender.com/ecommerce`
+* **Nota:** Esta API está en un plan gratuito. Después de 15 minutos de inactividad, el servidor se "duerme". Si una petición falla o tarda mucho, esperá 30 segundos y volvé a intentarlo.
+
+### 2. Entorno de Desarrollo (Local)
+* **URL Base:** `http://localhost:8080/ecommerce`
+* **Para correrlo:** Abrí la carpeta `backend` en tu IDE y ejecutá `EcommerceApplication.java`.
+* **Consola H2 (para ver la DB):** `http://localhost:8080/ecommerce/h2`
+    * **JDBC URL:** `jdbc:h2:mem:ecommerce`
+    * **User:** `sa`
+    * **Password:** `password`
 
 ---
 ## 📦 Productos
