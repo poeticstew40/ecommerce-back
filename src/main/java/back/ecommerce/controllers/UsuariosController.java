@@ -18,6 +18,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import back.ecommerce.dtos.UsuariosRequest;
 import back.ecommerce.dtos.UsuariosResponse;
 import back.ecommerce.services.UsuariosService;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 
 
@@ -30,7 +31,7 @@ public class UsuariosController {
     private final UsuariosService usuariosService;
 
     @PostMapping
-    public ResponseEntity<UsuariosResponse> crearUsuario(@RequestBody UsuariosRequest request) {
+    public ResponseEntity<UsuariosResponse> crearUsuario(@Valid @RequestBody UsuariosRequest request) {
  
         final var usuarioCreado = usuariosService.create(request);
 

@@ -19,6 +19,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import back.ecommerce.dtos.ProductosRequest;
 import back.ecommerce.dtos.ProductosResponse;
 import back.ecommerce.services.ProductosService;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 
 
@@ -37,7 +38,7 @@ public class ProductosController {
     }
 
     @PostMapping
-    public ResponseEntity<ProductosResponse> postProductos(@RequestBody ProductosRequest request){ 
+    public ResponseEntity<ProductosResponse> postProductos(@Valid @RequestBody ProductosRequest request){ 
         
     final var producto = this.productosService.create(request);
 
