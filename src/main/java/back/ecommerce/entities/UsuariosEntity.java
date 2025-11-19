@@ -5,6 +5,8 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
@@ -28,7 +30,15 @@ public class UsuariosEntity {
     private String nombre;
     private String apellido;
 
+    // ✅ NUEVO: Rol
+    @Enumerated(EnumType.STRING)
+    private Rol rol;
+
+    // ✅ NUEVO: Si es vendedor, tiene una tienda asociada
+    // Usamos JsonIgnore o BackReference para no hacer bucle
+    // Pero por ahora dejalo simple, después lo ajustamos con JWT
+    
     @OneToMany(mappedBy = "usuario")
     @JsonManagedReference("usuario-pedido")
-    private List<PedidosEntity> pedidos;
+    private List<PedidosEntity> pedidos; // Compras que hizo como COMPRADOR
 }

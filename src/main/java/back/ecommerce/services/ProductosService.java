@@ -6,21 +6,20 @@ import back.ecommerce.dtos.ProductosRequest;
 import back.ecommerce.dtos.ProductosResponse;
 
 public interface ProductosService {
-    //Crear
-    ProductosResponse create(ProductosRequest producto); 
-    //Obtener por id
+    
+    // Crear asignando a una tienda
+    ProductosResponse create(String nombreTienda, ProductosRequest producto);
+
+    // Leer solo los de esa tienda
+    List<ProductosResponse> readAllByTienda(String nombreTienda);
+
+    // Búsquedas filtradas por tienda
+    List<ProductosResponse> buscarPorNombre(String nombreTienda, String termino);
+    List<ProductosResponse> buscarPorCategoria(String nombreTienda, Long categoriaId);
+
+    // Métodos por ID (Siguen igual porque el ID es único global)
     ProductosResponse readById(Long id);
-    //Obtener por nombre
-    ProductosResponse readByName(String nombre);
-    //Actualizar
     ProductosResponse update(Long id, ProductosRequest producto);
-    //Eliminar
     void delete(Long id);
-    //obtener todos
-    List<ProductosResponse> readAll();
-    //lista de productos por nombre
-    List<ProductosResponse> buscarPorNombre(String termino);
-    //lista de productos por categoria
-    List<ProductosResponse> buscarPorCategoria(Long categoriaId);
     
 }

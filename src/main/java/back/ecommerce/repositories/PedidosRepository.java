@@ -1,24 +1,17 @@
 package back.ecommerce.repositories;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
 
 import back.ecommerce.entities.PedidosEntity;
 
 public interface PedidosRepository extends JpaRepository<PedidosEntity, Long>{
 
-    //query
-    Optional<PedidosEntity> findById(Long id);
+    // Ver todos los pedidos recibidos por UNA TIENDA (para el panel del vendedor)
+    List<PedidosEntity> findByTiendaNombreUrl(String nombreUrl);
 
-    //delete
-    @Modifying
-    @Query("DELETE FROM PedidosEntity WHERE id=:id")
-    void deleteById(Long id);
-
-    List<PedidosEntity> findByUsuarioDni(Long dni);
+    // Ver los pedidos que hizo UN COMPRADOR en una tienda específica
+    List<PedidosEntity> findByTiendaNombreUrlAndUsuarioDni(String nombreUrl, Long dni);
 
 }

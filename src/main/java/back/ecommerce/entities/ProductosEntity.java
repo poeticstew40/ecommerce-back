@@ -44,4 +44,10 @@ public class ProductosEntity {
     @OneToMany(mappedBy = "producto")
     @JsonManagedReference("producto-item")
     private List<ItemsPedidosEntity> itemsPedido;
+
+    // ✅ NUEVO: A qué tienda pertenece
+    @ManyToOne
+    @JoinColumn(name = "tienda_id")
+    @JsonBackReference("tienda-producto")
+    private TiendaEntity tienda;
 }

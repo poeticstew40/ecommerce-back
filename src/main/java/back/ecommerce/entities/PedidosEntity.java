@@ -60,4 +60,9 @@ public class PedidosEntity {
             item.setPedido(null);
         }
     } 
+
+    @ManyToOne
+    @JoinColumn(name = "tienda_id")
+    @JsonBackReference("tienda-pedido")
+    private TiendaEntity tienda;
 }
