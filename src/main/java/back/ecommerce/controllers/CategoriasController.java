@@ -18,6 +18,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import back.ecommerce.dtos.CategoriasRequest;
 import back.ecommerce.dtos.CategoriasResponse;
 import back.ecommerce.services.CategoriasService;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 
 
@@ -45,7 +46,7 @@ public class CategoriasController {
     
 
     @PostMapping
-    public ResponseEntity<CategoriasResponse> postCategorias(@RequestBody CategoriasRequest request){ 
+    public ResponseEntity<CategoriasResponse> postCategorias(@Valid @RequestBody CategoriasRequest request){ 
         
         final var categoria = this.categoriasService.create(request);
     

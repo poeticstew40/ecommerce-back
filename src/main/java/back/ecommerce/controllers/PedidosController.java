@@ -18,6 +18,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import back.ecommerce.dtos.PedidosRequest;
 import back.ecommerce.dtos.PedidosResponse;
 import back.ecommerce.services.PedidosService;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 
 @RestController
@@ -34,7 +35,7 @@ public class PedidosController {
     }
 
     @PostMapping
-    public ResponseEntity<PedidosResponse> postPedidos(@RequestBody PedidosRequest request){
+    public ResponseEntity<PedidosResponse> postPedidos(@Valid @RequestBody PedidosRequest request){
 
     final var pedido = this.pedidosService.create(request);
     
