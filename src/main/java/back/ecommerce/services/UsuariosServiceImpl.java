@@ -1,6 +1,8 @@
 package back.ecommerce.services;
 
-import org.springframework.beans.BeanUtils;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,9 +13,6 @@ import back.ecommerce.repositories.UsuariosRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
 @Service
 @Transactional
 @Slf4j
@@ -21,20 +20,6 @@ import java.util.stream.Collectors;
 public class UsuariosServiceImpl implements UsuariosService {
 
     private final UsuariosRepository usuariosRepository;
-
-    @Override
-    public UsuariosResponse create(UsuariosRequest usuario) {
-        if (usuariosRepository.findById(usuario.getDni()).isPresent()) {
-            throw new IllegalArgumentException("Ya existe un usuario con el DNI: " + usuario.getDni());
-        }
-
-        final var entity = new UsuariosEntity();
-        BeanUtils.copyProperties(usuario, entity);
- 
-        var usuarioGuardado = this.usuariosRepository.save(entity);
-
-        return convertirEntidadAResponse(usuarioGuardado);
-    }
 
     @Override
     public List<UsuariosResponse> readAll() {

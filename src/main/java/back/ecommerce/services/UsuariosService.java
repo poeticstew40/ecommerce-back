@@ -6,9 +6,6 @@ import back.ecommerce.dtos.UsuariosRequest;
 import back.ecommerce.dtos.UsuariosResponse;
 
 public interface UsuariosService {
-
-    //Crear
-    UsuariosResponse create(UsuariosRequest usuario);
     
     //Obtener todos
     List<UsuariosResponse> readAll();
