@@ -23,20 +23,28 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
 
     public AuthResponse register(RegisterRequest request) {
-        // 1. Crear el usuario (encriptando la clave)
+        // ✅ VALIDACIÓN 1: Chequear si el DNI ya existe
+        if (usuariosRepository.existsById(request.getDni())) {
+            throw new IllegalArgumentException("Ya existe un usuario con el DNI " + request.getDni());
+        }
+
+        // ✅ VALIDACIÓN 2: Chequear si el Email ya existe
+        if (usuariosRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("El email " + request.getEmail() + " ya está registrado");
+        }
+
+        // Si pasa las validaciones, creamos el usuario
         var user = UsuariosEntity.builder()
                 .dni(request.getDni())
                 .nombre(request.getNombre())
                 .apellido(request.getApellido())
                 .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword())) // ¡Clave encriptada!
-                .rol(Rol.COMPRADOR) // Por defecto, todos son compradores al registrarse
+                .password(passwordEncoder.encode(request.getPassword()))
+                .rol(Rol.COMPRADOR)
                 .build();
 
-        // 2. Guardar en DB
         usuariosRepository.save(user);
 
-        // 3. Generar Token
         var jwtToken = jwtService.generateToken(user);
         
         return AuthResponse.builder()
@@ -45,7 +53,6 @@ public class AuthService {
     }
 
     public AuthResponse login(AuthRequest request) {
-        // 1. Autenticar (esto valida usuario y contraseña automáticamente)
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
@@ -53,11 +60,9 @@ public class AuthService {
                 )
         );
 
-        // 2. Si pasó la autenticación, buscamos al usuario
         var user = usuariosRepository.findByEmail(request.getEmail())
-                .orElseThrow();
+                .orElseThrow(() -> new IllegalArgumentException("Usuario o contraseña incorrectos"));
 
-        // 3. Generamos un nuevo token
         var jwtToken = jwtService.generateToken(user);
         
         return AuthResponse.builder()

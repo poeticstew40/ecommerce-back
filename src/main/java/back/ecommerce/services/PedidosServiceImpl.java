@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.BeanUtils;
-import org.springframework.stereotype.Service; // 👈 Importante
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import back.ecommerce.dtos.ItemsPedidosResponse;
@@ -30,7 +30,7 @@ public class PedidosServiceImpl implements PedidosService {
     private final PedidosRepository pedidosRepository;
     private final UsuariosRepository usuariosRepository;
     private final ProductosRepository productosRepository;
-    private final TiendaRepository tiendaRepository; // 👈 Nuevo repo
+    private final TiendaRepository tiendaRepository;
 
     @Override
     public PedidosResponse create(String nombreTienda, PedidosRequest pedidoRequest) {
@@ -43,25 +43,38 @@ public class PedidosServiceImpl implements PedidosService {
         var usuario = usuariosRepository.findById(pedidoRequest.getUsuarioDni())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + pedidoRequest.getUsuarioDni()));
 
-        // 3. Armamos el Pedido
+        // 3. Armamos el Pedido base
         var pedidoEntity = new PedidosEntity();
         pedidoEntity.setUsuario(usuario);
-        pedidoEntity.setTienda(tienda); // 👈 ASIGNAMOS LA TIENDA
+        pedidoEntity.setTienda(tienda);
         pedidoEntity.setFechaPedido(LocalDateTime.now());
         pedidoEntity.setEstado("PENDIENTE");
         pedidoEntity.setItemsPedido(new ArrayList<>());
 
         BigDecimal totalCalculado = BigDecimal.ZERO;
 
-        // 4. Procesamos Items y calculamos total
+        // 4. Procesamos Items
         if (pedidoRequest.getItems() != null && !pedidoRequest.getItems().isEmpty()) {
             for (var itemReq : pedidoRequest.getItems()) {
                 var producto = productosRepository.findById(itemReq.getIdProducto())
                         .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + itemReq.getIdProducto()));
 
-                // Validar que el producto pertenezca a la misma tienda (Opcional pero recomendado)
-                // if (!producto.getTienda().getId().equals(tienda.getId())) { ... error ... }
+                // ✅ VALIDACIÓN A: Coherencia de Tienda
+                // Verificamos que el producto pertenezca a la tienda donde se está comprando
+                if (!producto.getTienda().getId().equals(tienda.getId())) {
+                    throw new IllegalArgumentException("El producto '" + producto.getNombre() + "' no pertenece a la tienda '" + nombreTienda + "'");
+                }
 
+                // ✅ VALIDACIÓN B: Control de Stock
+                if (producto.getStock() < itemReq.getCantidad()) {
+                    throw new IllegalArgumentException("Stock insuficiente para el producto: " + producto.getNombre() + ". Disponible: " + producto.getStock());
+                }
+
+                // ✅ ACCIÓN: Descontar Stock
+                producto.setStock(producto.getStock() - itemReq.getCantidad());
+                productosRepository.save(producto); // Guardamos el producto con el nuevo stock
+
+                // Crear el Item del Pedido
                 var itemEntity = new ItemsPedidosEntity();
                 itemEntity.setCantidad(itemReq.getCantidad());
                 itemEntity.setProducto(producto);
@@ -70,6 +83,7 @@ public class PedidosServiceImpl implements PedidosService {
                 
                 pedidoEntity.getItemsPedido().add(itemEntity);
 
+                // Calcular total
                 BigDecimal cantidad = new BigDecimal(itemReq.getCantidad());
                 BigDecimal subtotal = BigDecimal.valueOf(producto.getPrecio()).multiply(cantidad);
                 totalCalculado = totalCalculado.add(subtotal);
@@ -84,7 +98,6 @@ public class PedidosServiceImpl implements PedidosService {
 
     @Override
     public List<PedidosResponse> readAllByTienda(String nombreTienda) {
-        // Usamos el repo para filtrar por tienda
         return pedidosRepository.findByTiendaNombreUrl(nombreTienda).stream()
                 .map(this::convertirEntidadAResponse)
                 .collect(Collectors.toList());
@@ -92,7 +105,6 @@ public class PedidosServiceImpl implements PedidosService {
 
     @Override
     public List<PedidosResponse> findByUsuarioDni(String nombreTienda, Long dni) {
-        // Filtramos por tienda Y usuario
         return pedidosRepository.findByTiendaNombreUrlAndUsuarioDni(nombreTienda, dni).stream()
                 .map(this::convertirEntidadAResponse)
                 .collect(Collectors.toList());
