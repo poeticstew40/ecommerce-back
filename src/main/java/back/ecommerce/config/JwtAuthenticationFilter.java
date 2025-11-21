@@ -32,49 +32,50 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // 1. Buscar el header "Authorization"
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
         final String userEmail;
 
-        // 2. Si no tiene header o no empieza con "Bearer ", dejar pasar (Spring Security decidirá si rechaza después)
+        // 🕵️ LOG 1: Ver si llega el header
+        System.out.println(">>> FILTRO JWT: Procesando request a: " + request.getRequestURI());
+        if (authHeader != null) {
+            System.out.println(">>> FILTRO JWT: Header Authorization encontrado: " + authHeader.substring(0, Math.min(authHeader.length(), 15)) + "...");
+        } else {
+            System.out.println(">>> FILTRO JWT: NO hay header Authorization. Pasando como anónimo.");
+        }
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // 3. Sacar el token (quitando "Bearer ")
         jwt = authHeader.substring(7);
-        
-        // 4. Sacar el email del token
-        userEmail = jwtService.extractUsername(jwt);
+        try {
+            userEmail = jwtService.extractUsername(jwt);
+            System.out.println(">>> FILTRO JWT: Usuario extraído del token: " + userEmail);
+        } catch (Exception e) {
+            System.out.println(">>> FILTRO JWT: Error al extraer usuario del token: " + e.getMessage());
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-        // 5. Si hay email y el usuario no está autenticado todavía en el contexto...
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            
-            // Cargar datos del usuario desde la DB
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
-
-            // Verificar si el token es válido
+            
             if (jwtService.isTokenValid(jwt, userDetails)) {
-                
-                // Crear la "ficha" de autenticación
+                System.out.println(">>> FILTRO JWT: Token VÁLIDO. Autenticando usuario.");
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
                         userDetails.getAuthorities()
                 );
-                
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-
-                // Guardar al usuario en el contexto de seguridad (¡Acá decimos "está logueado"!)
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+            } else {
+                System.out.println(">>> FILTRO JWT: Token INVÁLIDO para el usuario " + userEmail);
             }
         }
         
-        // Continuar con la cadena de filtros
         filterChain.doFilter(request, response);
     }
 }

@@ -29,16 +29,20 @@ public class SecurityConfiguration {
             
             // 2. Configurar Permisos de Rutas
             .authorizeHttpRequests(auth -> auth
-                // -- RUTAS PÚBLICAS (Cualquiera puede entrar) --
-                .requestMatchers("/auth/**").permitAll() // Login y Registro
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll() // Documentación
-                .requestMatchers(HttpMethod.GET, "/tienda/**").permitAll()
-                
-                // Ejemplo: Permitir ver productos sin loguearse (Opcional)
-                // .requestMatchers(HttpMethod.GET, "/tienda/**").permitAll() 
+                // 1. Rutas 100% Públicas (Login, Registro, Docs, Webhooks)
+                .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers("/api/pagos/**").permitAll()
 
-                // -- RUTAS PRIVADAS (Requieren Token) --
-                .anyRequest().authenticated() // Todo lo demás requiere login
+                // 2. La "Vidriera": CUALQUIERA puede VER tiendas y productos (GET)
+                .requestMatchers(HttpMethod.GET, "/tiendas/**", "/tienda/**").permitAll()
+
+                // 3. El "Mostrador": SOLO usuarios autenticados pueden CREAR tiendas (POST)
+                // Esta línea es implícita por el anyRequest().authenticated(), 
+                // pero el problema es que si tu token no es válido o el filtro falla, te rebota.
+                
+                // 4. Todo lo demás requiere autenticación
+                .anyRequest().authenticated()
             )
 
             // 3. Configurar Sesión (Stateless = Sin estado, cada petición es nueva)
