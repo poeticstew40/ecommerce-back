@@ -51,7 +51,7 @@ public class AuthService {
 
         // ✅ ENVIAR EL MAIL
         // (En prod esto sería la URL de tu frontend o backend en Render)
-        String link = "http://localhost:8080/ecommerce/auth/verify?code=" + codigoVerificacion;
+        String link = "https://ecommerce-back-2uxy.onrender.com/auth/verify?code=" + codigoVerificacion;
         
         String mensaje = "Hola " + user.getNombre() + "!\n\n" +
                          "Para activar tu cuenta de vendedor, hacé clic acá:\n" +
