@@ -21,7 +21,7 @@ import back.ecommerce.services.PedidosService;
 import lombok.AllArgsConstructor;
 
 @RestController
-@RequestMapping("/tienda/{nombreTienda}/pedidos") // 👈 Ruta base dinámica
+@RequestMapping("/tiendas/{nombreTienda}/pedidos") // 👈 Ruta base dinámica
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class PedidosController {

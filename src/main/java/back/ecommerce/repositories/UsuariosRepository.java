@@ -10,4 +10,6 @@ public interface UsuariosRepository extends JpaRepository<UsuariosEntity, Long>{
 
     Optional<UsuariosEntity> findByEmail(String email);
 
+    Optional<UsuariosEntity> findByVerificationCode(String verificationCode);
+    
 }

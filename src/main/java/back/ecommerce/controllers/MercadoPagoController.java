@@ -1,35 +1,55 @@
 package back.ecommerce.controllers;
 
+import java.util.Map;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import back.ecommerce.entities.PedidosEntity;
 import back.ecommerce.repositories.PedidosRepository;
 import back.ecommerce.services.MercadoPagoService;
-import lombok.AllArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/pagos")
 @CrossOrigin(origins = "*")
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class MercadoPagoController {
 
     private final MercadoPagoService mercadoPagoService;
     private final PedidosRepository pedidosRepository;
 
-    // Endpoint: POST /api/pagos/crear/{pedidoId}
     @PostMapping("/crear/{pedidoId}")
-    public ResponseEntity<Map<String, String>> crearLinkDePago(@PathVariable Long pedidoId) {
+    public ResponseEntity<?> crearLinkDePago(@PathVariable Long pedidoId) {
         
-        // 1. Buscar el pedido en tu base de datos
         PedidosEntity pedido = pedidosRepository.findById(pedidoId)
                 .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado"));
 
-        // 2. Generar el link con MercadoPago
-        String urlPago = mercadoPagoService.crearPreferencia(pedido);
+        if ("PAGADO".equalsIgnoreCase(pedido.getEstado()) || "APROBADO".equalsIgnoreCase(pedido.getEstado())) {
+            return ResponseEntity.badRequest().body("Este pedido ya fue pagado.");
+        }
 
-        // 3. Devolver la URL al frontend
+        // Delegamos al servicio que ahora lee las credenciales de la configuración
+        String urlPago = mercadoPagoService.crearPreferencia(pedido);
+        
         return ResponseEntity.ok(Map.of("url", urlPago));
+    }
+    
+    @PostMapping("/webhook")
+    public ResponseEntity<Void> recibirNotificacion(
+            @RequestParam(value = "topic", required = false) String topic,
+            @RequestParam(value = "id", required = false) Long id) {
+
+        if ("payment".equals(topic) && id != null) {
+            System.out.println("🔔 Notificación de Pago recibida. ID: " + id);
+            mercadoPagoService.procesarNotificacion(id);
+        }
+        
+        return ResponseEntity.ok().build();
     }
 }

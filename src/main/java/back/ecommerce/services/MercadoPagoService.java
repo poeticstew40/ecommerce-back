@@ -4,71 +4,105 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value; // Importar Value
 import org.springframework.stereotype.Service;
 
 import com.mercadopago.MercadoPagoConfig;
+import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
 import com.mercadopago.client.preference.PreferenceClient;
 import com.mercadopago.client.preference.PreferenceItemRequest;
 import com.mercadopago.client.preference.PreferenceRequest;
+import com.mercadopago.exceptions.MPApiException;
+import com.mercadopago.resources.payment.Payment;
 import com.mercadopago.resources.preference.Preference;
 
 import back.ecommerce.entities.PedidosEntity;
+import back.ecommerce.repositories.PedidosRepository;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class MercadoPagoService {
 
-    // ⚠️ IMPORTANTE: Poné tu Access Token de prueba aquí (o en application.properties)
-    // Lo conseguís en: https://www.mercadopago.com.ar/developers/panel
-    private final String ACCESS_TOKEN = "APP_USR-7983789130208261-112018-62869b26284c43ecd8786f7518853570-3005390485"; 
+    // ✅ CAMBIO: Inyección de propiedades
+    @Value("${mp.access.token}")
+    private String accessToken;
+
+    @Value("${app.backend.url}")
+    private String backendUrl;
+    
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
+
+    private final PedidosRepository pedidosRepository;
 
     public String crearPreferencia(PedidosEntity pedido) {
-        // 1. Inicializar SDK
-        MercadoPagoConfig.setAccessToken(ACCESS_TOKEN);
+        // Usamos el token inyectado
+        MercadoPagoConfig.setAccessToken(accessToken);
 
-        // 2. Crear lista de items para MP
         List<PreferenceItemRequest> items = new ArrayList<>();
-
-        // Recorremos los items de tu pedido y los convertimos a items de MP
         pedido.getItemsPedido().forEach(item -> {
             PreferenceItemRequest itemRequest = PreferenceItemRequest.builder()
                     .title(item.getProducto().getNombre())
                     .quantity(item.getCantidad())
                     .unitPrice(BigDecimal.valueOf(item.getPrecioUnitario()))
-                    .currencyId("ARS") // O la moneda que uses
+                    .currencyId("ARS")
                     .build();
             items.add(itemRequest);
         });
 
-        // 3. Configurar URLs de retorno (a dónde vuelve el usuario después de pagar)
-        // Podés poner la URL de tu frontend local o producción
+        // Usamos la URL del frontend inyectada
         PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
-                .success("http://localhost:5173/compra-exitosa") // Cambiar por URL real del front
-                .failure("http://localhost:5173/compra-fallida")
-                .pending("http://localhost:5173/compra-pendiente")
+                .success(frontendUrl + "/compra-exitosa")
+                .failure(frontendUrl + "/compra-fallida")
+                .pending(frontendUrl + "/compra-pendiente")
                 .build();
 
-        // 4. Armar la solicitud completa
         PreferenceRequest preferenceRequest = PreferenceRequest.builder()
                 .items(items)
                 .backUrls(backUrls)
-                //.autoReturn("approved") // Volver automático si se aprueba
-                .externalReference(String.valueOf(pedido.getId())) // Guardamos el ID de tu pedido para identificarlo después
+                .autoReturn("approved")
+                .externalReference(String.valueOf(pedido.getId()))
+                // Usamos la URL del backend inyectada
+                .notificationUrl(backendUrl + "/api/pagos/webhook")
                 .build();
 
-        // 5. Crear la preferencia en MP y obtener el Link
-        // En tu método crearPreferencia...
         try {
             PreferenceClient client = new PreferenceClient();
             Preference preference = client.create(preferenceRequest);
             return preference.getInitPoint();
 
-        } catch (com.mercadopago.exceptions.MPApiException e) {
-            // 👇 ESTO ES LO QUE NECESITAMOS VER
+        } catch (MPApiException e) {
             System.err.println("❌ ERROR MP: " + e.getApiResponse().getContent());
             throw new RuntimeException("Error de MP", e);
         } catch (Exception e) {
             throw new RuntimeException("Error general", e);
         }
     }
+    
+    public void procesarNotificacion(Long paymentId) {
+        try {
+            // Aseguramos el token también aquí
+            MercadoPagoConfig.setAccessToken(accessToken);
+            
+            PaymentClient client = new PaymentClient();
+            Payment payment = client.get(paymentId);
+
+            if ("approved".equals(payment.getStatus())) {
+                String externalReference = payment.getExternalReference();
+                Long pedidoId = Long.parseLong(externalReference);
+
+                PedidosEntity pedido = pedidosRepository.findById(pedidoId)
+                        .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
+                
+                if (!"PAGADO".equals(pedido.getEstado())) {
+                    pedido.setEstado("PAGADO");
+                    pedidosRepository.save(pedido);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error procesando notificación: " + e.getMessage());
+        }
+    } 
 }

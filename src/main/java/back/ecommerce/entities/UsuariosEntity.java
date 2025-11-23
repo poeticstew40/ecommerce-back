@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -39,6 +40,11 @@ public class UsuariosEntity implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     private Rol rol; // Asegurate de tener el Enum Rol creado
+
+    @Column(columnDefinition = "boolean default false")
+    private boolean emailVerificado; 
+    
+    private String verificationCode; // El código UUID que va en el link
 
     @OneToMany(mappedBy = "usuario")
     @JsonManagedReference("usuario-pedido")

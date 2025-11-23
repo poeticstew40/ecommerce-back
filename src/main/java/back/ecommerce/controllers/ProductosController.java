@@ -23,7 +23,7 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 
 @RestController
-@RequestMapping("/tienda/{nombreTienda}/productos") // 👈 ¡Ruta base dinámica!
+@RequestMapping("/tiendas/{nombreTienda}/productos") // 👈 ¡Ruta base dinámica!
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class ProductosController {

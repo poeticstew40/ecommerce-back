@@ -35,7 +35,7 @@ public class SecurityConfiguration {
                 .requestMatchers("/api/pagos/**").permitAll()
 
                 // 2. La "Vidriera": CUALQUIERA puede VER tiendas y productos (GET)
-                .requestMatchers(HttpMethod.GET, "/tiendas/**", "/tienda/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/tiendas/**").permitAll()
 
                 // 3. El "Mostrador": SOLO usuarios autenticados pueden CREAR tiendas (POST)
                 // Esta línea es implícita por el anyRequest().authenticated(), 
