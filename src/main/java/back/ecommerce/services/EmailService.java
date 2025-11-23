@@ -1,10 +1,11 @@
 package back.ecommerce.services;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
+import com.resend.Resend;
+import com.resend.services.emails.model.CreateEmailOptions;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -12,24 +13,29 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class EmailService {
 
-    @Autowired
-    private JavaMailSender mailSender;
+    @Value("${resend.api.key}")
+    private String resendApiKey;
 
-    @Value("${spring.mail.username}")
-    private String fromEmail;
+    // Si ya verificaste tu dominio, ponlo acá. Si no, usa "onboarding@resend.dev"
+    private final String REMITENTE = "Ecommerce <hola@tudominio.com>"; 
 
+    @Async
     public void enviarCorreo(String to, String subject, String body) {
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
-            message.setTo(to);
-            message.setSubject(subject);
-            message.setText(body);
+            Resend resend = new Resend(resendApiKey);
 
-            mailSender.send(message);
-            log.info("📧 Email enviado correctamente a: {}", to);
+            CreateEmailOptions params = CreateEmailOptions.builder()
+                    .from(REMITENTE)
+                    .to(to)
+                    .subject(subject)
+                    .html(body.replace("\n", "<br>")) 
+                    .build();
+
+            resend.emails().send(params);
+            log.info("✅ Email enviado a: {}", to);
+
         } catch (Exception e) {
-            log.error("❌ Error enviando email a {}: {}", to, e.getMessage());
+            log.error("❌ Error enviando email: {}", e.getMessage());
         }
     }
 }
