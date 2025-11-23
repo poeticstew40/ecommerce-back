@@ -33,6 +33,7 @@ public class SecurityConfiguration {
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/api/pagos/**").permitAll()
+                .requestMatchers("/api/pagos/webhook").permitAll()
 
                 // 2. La "Vidriera": CUALQUIERA puede VER tiendas y productos (GET)
                 .requestMatchers(HttpMethod.GET, "/tiendas/**").permitAll()
