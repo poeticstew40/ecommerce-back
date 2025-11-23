@@ -32,7 +32,6 @@ public class SecurityConfiguration {
                 // 1. Rutas 100% Públicas (Login, Registro, Docs, Webhooks)
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                .requestMatchers("/api/pagos/**").permitAll()
                 .requestMatchers("/api/pagos/webhook").permitAll()
 
                 // 2. La "Vidriera": CUALQUIERA puede VER tiendas y productos (GET)

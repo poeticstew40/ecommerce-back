@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Value; // Importar Value
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.mercadopago.MercadoPagoConfig;
@@ -25,7 +25,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MercadoPagoService {
 
-    // ✅ CAMBIO: Inyección de propiedades
     @Value("${mp.access.token}")
     private String accessToken;
 
@@ -36,9 +35,9 @@ public class MercadoPagoService {
     private String frontendUrl;
 
     private final PedidosRepository pedidosRepository;
+    private final EmailService emailService; // ✅ 1. Inyectamos el servicio de email
 
     public String crearPreferencia(PedidosEntity pedido) {
-        // Usamos el token inyectado
         MercadoPagoConfig.setAccessToken(accessToken);
 
         List<PreferenceItemRequest> items = new ArrayList<>();
@@ -52,7 +51,6 @@ public class MercadoPagoService {
             items.add(itemRequest);
         });
 
-        // Usamos la URL del frontend inyectada
         PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
                 .success(frontendUrl + "/compra-exitosa")
                 .failure(frontendUrl + "/compra-fallida")
@@ -64,7 +62,6 @@ public class MercadoPagoService {
                 .backUrls(backUrls)
                 .autoReturn("approved")
                 .externalReference(String.valueOf(pedido.getId()))
-                // Usamos la URL del backend inyectada
                 .notificationUrl(backendUrl + "/api/pagos/webhook")
                 .build();
 
@@ -72,7 +69,6 @@ public class MercadoPagoService {
             PreferenceClient client = new PreferenceClient();
             Preference preference = client.create(preferenceRequest);
             return preference.getInitPoint();
-
         } catch (MPApiException e) {
             System.err.println("❌ ERROR MP: " + e.getApiResponse().getContent());
             throw new RuntimeException("Error de MP", e);
@@ -83,9 +79,7 @@ public class MercadoPagoService {
     
     public void procesarNotificacion(Long paymentId) {
         try {
-            // Aseguramos el token también aquí
             MercadoPagoConfig.setAccessToken(accessToken);
-            
             PaymentClient client = new PaymentClient();
             Payment payment = client.get(paymentId);
 
@@ -95,10 +89,30 @@ public class MercadoPagoService {
 
                 PedidosEntity pedido = pedidosRepository.findById(pedidoId)
                         .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
-                
+
+                // ✅ 2. Verificamos si YA estaba pagado para no enviar spam
                 if (!"PAGADO".equals(pedido.getEstado())) {
+                    
+                    // A. Actualizamos estado
                     pedido.setEstado("PAGADO");
                     pedidosRepository.save(pedido);
+                    System.out.println("✅ Pedido #" + pedidoId + " marcado como PAGADO.");
+
+                    // ✅ B. Enviamos el Correo
+                    if (pedido.getUsuario() != null && pedido.getUsuario().getEmail() != null) {
+                        String emailUsuario = pedido.getUsuario().getEmail();
+                        String asunto = "¡Pago Confirmado! Pedido #" + pedido.getId();
+                        
+                        String mensaje = "Hola " + pedido.getUsuario().getNombre() + ",\n\n" +
+                                "Tu pago ha sido procesado exitosamente.\n" +
+                                "--------------------------------------\n" +
+                                "Total: $" + pedido.getTotal() + "\n" +
+                                "Tienda: " + (pedido.getTienda() != null ? pedido.getTienda().getNombreFantasia() : "E-commerce") + "\n" +
+                                "--------------------------------------\n\n" +
+                                "¡Gracias por tu compra!";
+
+                        emailService.enviarCorreo(emailUsuario, asunto, mensaje);
+                    }
                 }
             }
         } catch (Exception e) {
