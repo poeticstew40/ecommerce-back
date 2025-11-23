@@ -17,7 +17,7 @@ public class EmailService {
     private String resendApiKey;
 
     // Si ya verificaste tu dominio, ponlo acá. Si no, usa "onboarding@resend.dev"
-    private final String REMITENTE = "Ecommerce <hola@tudominio.com>"; 
+    private final String REMITENTE = "Ecommerce <info@nicolasgigena.com.ar>"; 
 
     @Async
     public void enviarCorreo(String to, String subject, String body) {
