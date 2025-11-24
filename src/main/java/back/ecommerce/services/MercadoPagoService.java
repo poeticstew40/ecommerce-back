@@ -35,12 +35,14 @@ public class MercadoPagoService {
     private String frontendUrl;
 
     private final PedidosRepository pedidosRepository;
-    private final EmailService emailService; // ✅ 1. Inyectamos el servicio de email
+    private final EmailService emailService; 
 
     public String crearPreferencia(PedidosEntity pedido) {
         MercadoPagoConfig.setAccessToken(accessToken);
 
         List<PreferenceItemRequest> items = new ArrayList<>();
+        
+        // 1. Agregamos los PRODUCTOS reales
         pedido.getItemsPedido().forEach(item -> {
             PreferenceItemRequest itemRequest = PreferenceItemRequest.builder()
                     .title(item.getProducto().getNombre())
@@ -50,6 +52,17 @@ public class MercadoPagoService {
                     .build();
             items.add(itemRequest);
         });
+
+        // 2. ✅ NUEVO: Agregamos el ENVÍO como un item más si existe
+        if (pedido.getCostoEnvio() != null && pedido.getCostoEnvio() > 0) {
+            PreferenceItemRequest itemEnvio = PreferenceItemRequest.builder()
+                    .title("Costo de Envío")
+                    .quantity(1)
+                    .unitPrice(BigDecimal.valueOf(pedido.getCostoEnvio()))
+                    .currencyId("ARS")
+                    .build();
+            items.add(itemEnvio);
+        }
 
         PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
                 .success(frontendUrl + "/compra-exitosa")
@@ -90,7 +103,7 @@ public class MercadoPagoService {
                 PedidosEntity pedido = pedidosRepository.findById(pedidoId)
                         .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
 
-                // ✅ 2. Verificamos si YA estaba pagado para no enviar spam
+                // Verificamos si YA estaba pagado para no enviar spam ni procesar doble
                 if (!"PAGADO".equals(pedido.getEstado())) {
                     
                     // A. Actualizamos estado
@@ -98,7 +111,7 @@ public class MercadoPagoService {
                     pedidosRepository.save(pedido);
                     System.out.println("✅ Pedido #" + pedidoId + " marcado como PAGADO.");
 
-                    // ✅ B. Enviamos el Correo
+                    // B. Enviamos el Correo
                     if (pedido.getUsuario() != null && pedido.getUsuario().getEmail() != null) {
                         String emailUsuario = pedido.getUsuario().getEmail();
                         String asunto = "¡Pago Confirmado! Pedido #" + pedido.getId();
@@ -106,7 +119,7 @@ public class MercadoPagoService {
                         String mensaje = "Hola " + pedido.getUsuario().getNombre() + ",\n\n" +
                                 "Tu pago ha sido procesado exitosamente.\n" +
                                 "--------------------------------------\n" +
-                                "Total: $" + pedido.getTotal() + "\n" +
+                                "Total pagado: $" + pedido.getTotal() + "\n" +
                                 "Tienda: " + (pedido.getTienda() != null ? pedido.getTienda().getNombreFantasia() : "E-commerce") + "\n" +
                                 "--------------------------------------\n\n" +
                                 "¡Gracias por tu compra!";
