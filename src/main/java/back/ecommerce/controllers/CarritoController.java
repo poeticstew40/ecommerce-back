@@ -19,35 +19,41 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/carrito")
-@CrossOrigin(origins = "*") // Ajustar si ya usas CorsConfig global
+@RequestMapping("/api/tiendas/{nombreTienda}/carrito")
+@CrossOrigin(origins = "*") 
 @RequiredArgsConstructor
 public class CarritoController {
 
     private final CarritoService carritoService;
 
-    // Agregar producto al carrito
     @PostMapping("/agregar")
-    public ResponseEntity<CarritoResponse> agregarAlCarrito(@Valid @RequestBody CarritoRequest request) {
-        return ResponseEntity.ok(carritoService.agregarProducto(request));
+    public ResponseEntity<CarritoResponse> agregarAlCarrito(
+            @PathVariable String nombreTienda, // ✅ Recibimos el nombre de la tienda
+            @Valid @RequestBody CarritoRequest request) {
+        
+        return ResponseEntity.ok(carritoService.agregarProducto(nombreTienda, request));
     }
 
-    // Ver carrito de un usuario
     @GetMapping("/{usuarioDni}")
-    public ResponseEntity<List<CarritoResponse>> verCarrito(@PathVariable Long usuarioDni) {
+    public ResponseEntity<List<CarritoResponse>> verCarrito(
+            @PathVariable String nombreTienda, 
+            @PathVariable Long usuarioDni) {
+        // Opcional: Podrías filtrar el carrito para mostrar solo items de ESTA tienda
         return ResponseEntity.ok(carritoService.obtenerCarrito(usuarioDni));
     }
 
-    // Eliminar un item específico del carrito
     @DeleteMapping("/item/{idItem}")
-    public ResponseEntity<Void> eliminarItem(@PathVariable Long idItem) {
+    public ResponseEntity<Void> eliminarItem(
+            @PathVariable String nombreTienda, 
+            @PathVariable Long idItem) {
         carritoService.eliminarItem(idItem);
         return ResponseEntity.noContent().build();
     }
 
-    // Vaciar todo el carrito del usuario
     @DeleteMapping("/vaciar/{usuarioDni}")
-    public ResponseEntity<Void> vaciarCarrito(@PathVariable Long usuarioDni) {
+    public ResponseEntity<Void> vaciarCarrito(
+            @PathVariable String nombreTienda, 
+            @PathVariable Long usuarioDni) {
         carritoService.vaciarCarrito(usuarioDni);
         return ResponseEntity.noContent().build();
     }
