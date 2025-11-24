@@ -18,5 +18,8 @@ public class PedidosRequest {
     private Double total;
     private List<ItemsPedidosResponse> items;
     private Long usuarioDni;
+    private String metodoEnvio;
+    private String direccionEnvio;
+    private Double costoEnvio;
 
 }

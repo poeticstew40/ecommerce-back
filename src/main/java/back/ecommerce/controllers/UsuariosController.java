@@ -19,7 +19,7 @@ import lombok.AllArgsConstructor;
 
 
 @RestController
-@RequestMapping(path = "usuarios")
+@RequestMapping("/api/usuarios")
 @CrossOrigin(origins = "*") 
 @AllArgsConstructor
 public class UsuariosController {

@@ -19,7 +19,7 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 
 @RestController
-@RequestMapping("/tiendas") // Endpoint base para gestión de tiendas
+@RequestMapping("/api/tiendas") // Endpoint base para gestión de tiendas
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class TiendaController {

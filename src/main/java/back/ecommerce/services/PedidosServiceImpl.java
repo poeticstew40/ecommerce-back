@@ -50,6 +50,11 @@ public class PedidosServiceImpl implements PedidosService {
         pedidoEntity.setFechaPedido(LocalDateTime.now());
         pedidoEntity.setEstado("PENDIENTE");
         pedidoEntity.setItemsPedido(new ArrayList<>());
+        
+        // Seteamos datos de envío
+        pedidoEntity.setMetodoEnvio(pedidoRequest.getMetodoEnvio());
+        pedidoEntity.setDireccionEnvio(pedidoRequest.getDireccionEnvio());
+        pedidoEntity.setCostoEnvio(pedidoRequest.getCostoEnvio() != null ? pedidoRequest.getCostoEnvio() : 0.0);
 
         BigDecimal totalCalculado = BigDecimal.ZERO;
 
@@ -83,11 +88,16 @@ public class PedidosServiceImpl implements PedidosService {
                 
                 pedidoEntity.getItemsPedido().add(itemEntity);
 
-                // Calcular total
+                // Calcular total de items
                 BigDecimal cantidad = new BigDecimal(itemReq.getCantidad());
                 BigDecimal subtotal = BigDecimal.valueOf(producto.getPrecio()).multiply(cantidad);
                 totalCalculado = totalCalculado.add(subtotal);
             }
+        }
+
+        // ✅ MODIFICACIÓN IMPORTANTE: Sumar el costo de envío al total final
+        if (pedidoEntity.getCostoEnvio() != null && pedidoEntity.getCostoEnvio() > 0) {
+            totalCalculado = totalCalculado.add(BigDecimal.valueOf(pedidoEntity.getCostoEnvio()));
         }
 
         pedidoEntity.setTotal(totalCalculado.doubleValue());

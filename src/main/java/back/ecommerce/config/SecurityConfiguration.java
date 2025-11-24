@@ -30,12 +30,10 @@ public class SecurityConfiguration {
             // 2. Configurar Permisos de Rutas
             .authorizeHttpRequests(auth -> auth
                 // 1. Rutas 100% Públicas (Login, Registro, Docs, Webhooks)
-                .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/api/pagos/webhook").permitAll()
-
-                // 2. La "Vidriera": CUALQUIERA puede VER tiendas y productos (GET)
-                .requestMatchers(HttpMethod.GET, "/tiendas/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/tiendas/**").permitAll()
 
                 // 3. El "Mostrador": SOLO usuarios autenticados pueden CREAR tiendas (POST)
                 // Esta línea es implícita por el anyRequest().authenticated(), 
