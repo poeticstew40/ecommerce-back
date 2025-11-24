@@ -53,7 +53,7 @@ public class MercadoPagoService {
             items.add(itemRequest);
         });
 
-        // 2. ✅ NUEVO: Agregamos el ENVÍO como un item más si existe
+        // 2. ✅ Agregamos el ENVÍO como un item más si existe
         if (pedido.getCostoEnvio() != null && pedido.getCostoEnvio() > 0) {
             PreferenceItemRequest itemEnvio = PreferenceItemRequest.builder()
                     .title("Costo de Envío")
@@ -111,17 +111,26 @@ public class MercadoPagoService {
                     pedidosRepository.save(pedido);
                     System.out.println("✅ Pedido #" + pedidoId + " marcado como PAGADO.");
 
-                    // B. Enviamos el Correo
+                    // B. Enviamos el Correo con el desglose calculado
                     if (pedido.getUsuario() != null && pedido.getUsuario().getEmail() != null) {
                         String emailUsuario = pedido.getUsuario().getEmail();
                         String asunto = "¡Pago Confirmado! Pedido #" + pedido.getId();
                         
+                        // --- CÁLCULOS PARA MOSTRAR BIEN LOS NÚMEROS ---
+                        BigDecimal total = BigDecimal.valueOf(pedido.getTotal());
+                        BigDecimal envio = BigDecimal.valueOf(pedido.getCostoEnvio() != null ? pedido.getCostoEnvio() : 0.0);
+                        BigDecimal subtotal = total.subtract(envio); // Restamos envío al total para sacar el subtotal puro
+
+                        // --- ARMADO DEL MENSAJE ---
                         String mensaje = "Hola " + pedido.getUsuario().getNombre() + ",\n\n" +
                                 "Tu pago ha sido procesado exitosamente.\n" +
                                 "--------------------------------------\n" +
-                                "Total pagado: $" + pedido.getTotal() + "\n" +
-                                "Tienda: " + (pedido.getTienda() != null ? pedido.getTienda().getNombreFantasia() : "E-commerce") + "\n" +
+                                "Subtotal Productos: $" + subtotal + "\n" +
+                                "Costo de Envío:     $" + envio + "\n" +
+                                "--------------------------------------\n" +
+                                "TOTAL ABONADO:      $" + total + "\n" +
                                 "--------------------------------------\n\n" +
+                                "Tienda: " + (pedido.getTienda() != null ? pedido.getTienda().getNombreFantasia() : "E-commerce") + "\n" +
                                 "¡Gracias por tu compra!";
 
                         emailService.enviarCorreo(emailUsuario, asunto, mensaje);
