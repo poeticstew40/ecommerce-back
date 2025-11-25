@@ -1,7 +1,7 @@
 package back.ecommerce.controllers;
 
 import java.util.List;
-import java.util.Map; // Importar Map
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -19,7 +19,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/favoritos")
+@RequestMapping("/api/tiendas/{nombreTienda}/favoritos")
 @CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class FavoritoController {
@@ -27,13 +27,20 @@ public class FavoritoController {
     private final FavoritoService favoritoService;
 
     @PostMapping("/toggle")
-    public ResponseEntity<Map<String, String>> toggleFavorito(@Valid @RequestBody FavoritoRequest request) {
-        String mensaje = favoritoService.toggleFavorito(request);
+    public ResponseEntity<Map<String, String>> toggleFavorito(
+            @PathVariable String nombreTienda, // ✅ Capturamos el slug de la tienda
+            @Valid @RequestBody FavoritoRequest request) {
+        
+        // Pasamos el nombreTienda al servicio para que valide
+        String mensaje = favoritoService.toggleFavorito(nombreTienda, request);
         return ResponseEntity.ok(Map.of("mensaje", mensaje));
     }
 
     @GetMapping("/{usuarioDni}")
-    public ResponseEntity<List<FavoritoResponse>> listarFavoritos(@PathVariable Long usuarioDni) {
-        return ResponseEntity.ok(favoritoService.obtenerFavoritos(usuarioDni));
+    public ResponseEntity<List<FavoritoResponse>> listarFavoritos(
+            @PathVariable String nombreTienda, 
+            @PathVariable Long usuarioDni) {
+        
+        return ResponseEntity.ok(favoritoService.obtenerFavoritos(nombreTienda, usuarioDni));
     }
 }
