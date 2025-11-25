@@ -22,15 +22,13 @@ public class OrderCleanupService {
     private final PedidosRepository pedidosRepository;
     private final ProductosRepository productosRepository;
 
-    // ⏰ CRON JOB: Se ejecuta automáticamente cada 30 minutos
-    // fixedRate = 1800000 milisegundos (30 min)
-    @Scheduled(fixedRate = 1800000)
+    @Scheduled(fixedRate = 60000)
     @Transactional
     public void cancelarPedidosExpirados() {
         log.info("🧹 [CRON JOB] Iniciando limpieza de pedidos expirados...");
 
-        // 1. Definimos qué es "Viejo": Pedidos creados hace más de 45 minutos
-        LocalDateTime tiempoLimite = LocalDateTime.now().minusMinutes(45);
+        // 1. Definimos qué es "Viejo": Pedidos creados hace más de 10 minutos
+        LocalDateTime tiempoLimite = LocalDateTime.now().minusMinutes(10);
 
         // 2. Buscamos en la BD: Estado "PENDIENTE" y Fecha < tiempoLimite
         List<PedidosEntity> pedidosViejos = pedidosRepository.findByEstadoAndFechaPedidoBefore("PENDIENTE", tiempoLimite);
