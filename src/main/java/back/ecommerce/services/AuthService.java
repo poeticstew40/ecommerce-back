@@ -2,6 +2,7 @@ package back.ecommerce.services;
 
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,7 +14,7 @@ import back.ecommerce.dtos.RegisterRequest;
 import back.ecommerce.entities.Rol;
 import back.ecommerce.entities.UsuariosEntity;
 import back.ecommerce.repositories.UsuariosRepository;
-import lombok.RequiredArgsConstructor; // Para generar el código único
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +24,11 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    private final EmailService emailService; // ✅ Inyectamos EmailService
+    private final EmailService emailService;
+
+    // ✅ INYECCIÓN DE LA URL DEL BACKEND (Desde Render/Properties)
+    @Value("${app.backend.url}")
+    private String backendUrl;
 
     public AuthResponse register(RegisterRequest request) {
         if (usuariosRepository.existsById(request.getDni())) {
@@ -33,7 +38,6 @@ public class AuthService {
             throw new IllegalArgumentException("El email " + request.getEmail() + " ya está registrado");
         }
 
-        // Generamos código de verificación
         String codigoVerificacion = UUID.randomUUID().toString();
 
         var user = UsuariosEntity.builder()
@@ -43,24 +47,21 @@ public class AuthService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .rol(Rol.COMPRADOR)
-                .emailVerificado(false) // ✅ Nace NO verificado
-                .verificationCode(codigoVerificacion) // ✅ Guardamos el código
+                .emailVerificado(false)
+                .verificationCode(codigoVerificacion)
                 .build();
 
         usuariosRepository.save(user);
 
-        // ✅ ENVIAR EL MAIL
-        // (En prod esto sería la URL de tu frontend o backend en Render)
-        String link = "https://ecommerce-back-2uxy.onrender.com/auth/verify?code=" + codigoVerificacion;
+        String link = backendUrl + "/api/auth/verify?code=" + codigoVerificacion;
         
         String mensaje = "Hola " + user.getNombre() + "!\n\n" +
-                         "Para activar tu cuenta de vendedor, hacé clic acá:\n" +
+                         "Gracias por registrarte. Para activar tu cuenta, hacé clic en el siguiente enlace:\n\n" +
                          link + "\n\n" +
                          "Si no solicitaste esto, ignorá este mensaje.";
 
         emailService.enviarCorreo(user.getEmail(), "Verificá tu cuenta", mensaje);
 
-        // Retornamos token (aunque no pueda crear tiendas todavía, puede loguearse)
         var jwtToken = jwtService.generateToken(user);
         return AuthResponse.builder().token(jwtToken).build();
     }
@@ -76,19 +77,18 @@ public class AuthService {
         return AuthResponse.builder().token(jwtToken).build();
     }
 
-    // ✅ NUEVO MÉTODO PARA VALIDAR
     public String verifyUser(String code) {
         UsuariosEntity user = usuariosRepository.findByVerificationCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("Código de verificación inválido o expirado"));
 
         if (user.isEmailVerificado()) {
-            return "Tu cuenta ya estaba verificada.";
+            return "Tu cuenta ya estaba verificada. Puedes iniciar sesión.";
         }
 
         user.setEmailVerificado(true);
-        user.setVerificationCode(null); // Borramos el código por seguridad
+        user.setVerificationCode(null);
         usuariosRepository.save(user);
 
-        return "¡Cuenta verificada con éxito! Ahora podés crear tu tienda.";
+        return "¡Cuenta verificada con éxito! Ya podés cerrar esta ventana e iniciar sesión.";
     }
 }
