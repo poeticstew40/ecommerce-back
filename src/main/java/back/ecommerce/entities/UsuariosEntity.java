@@ -55,6 +55,10 @@ public class UsuariosEntity implements UserDetails {
     @JsonManagedReference("usuario-direccion")
     private List<DireccionEntity> direcciones;
 
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("usuario-favorito")
+    private List<FavoritoEntity> favoritos;
+
     // --- MÉTODOS DE USER DETAILS (OBLIGATORIOS) ---
 
     @Override
