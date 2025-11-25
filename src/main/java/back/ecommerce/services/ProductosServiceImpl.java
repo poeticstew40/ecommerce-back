@@ -7,7 +7,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import back.ecommerce.dtos.ProductosRequest; // 👈 Importante
+import back.ecommerce.dtos.ProductosRequest;
 import back.ecommerce.dtos.ProductosResponse;
 import back.ecommerce.entities.ProductosEntity;
 import back.ecommerce.repositories.CategoriasRepository;
@@ -24,7 +24,7 @@ public class ProductosServiceImpl implements ProductosService {
 
     private final ProductosRepository productosRepository;
     private final CategoriasRepository categoriasRepository;
-    private final TiendaRepository tiendaRepository; // 👈 Nuevo repo inyectado
+    private final TiendaRepository tiendaRepository; 
 
     @Override
     public ProductosResponse create(String nombreTienda, ProductosRequest productoRequest) {
@@ -32,16 +32,23 @@ public class ProductosServiceImpl implements ProductosService {
         var tienda = tiendaRepository.findByNombreUrl(nombreTienda)
                 .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreTienda));
 
-        // 2. Creamos la entidad
-        var entity = new ProductosEntity();
-        BeanUtils.copyProperties(productoRequest, entity);
-
-        // 3. Buscamos y asignamos la categoría
+        // 2. Buscamos la CATEGORÍA
         var categoria = categoriasRepository.findById(productoRequest.getCategoriaId())
             .orElseThrow(() -> new IllegalArgumentException("Categoria no encontrada con id: " + productoRequest.getCategoriaId()));
-        entity.setCategoria(categoria);
 
-        // 4. Asignamos la tienda a la entidad
+        // 3. 🛡️ VALIDACIÓN DE SEGURIDAD (Cross-Store Check)
+        // Verificamos que la categoría pertenezca a ESTA tienda
+        if (!categoria.getTienda().getId().equals(tienda.getId())) {
+            throw new IllegalArgumentException("Error de Seguridad: La categoría '" + categoria.getNombre() + 
+                                               "' pertenece a otra tienda, no a '" + nombreTienda + "'.");
+        }
+
+        // 4. Creamos la entidad
+        var entity = new ProductosEntity();
+        BeanUtils.copyProperties(productoRequest, entity);
+        
+        // Asignaciones
+        entity.setCategoria(categoria);
         entity.setTienda(tienda); 
 
         // 5. Guardamos
@@ -52,7 +59,6 @@ public class ProductosServiceImpl implements ProductosService {
 
     @Override
     public List<ProductosResponse> readAllByTienda(String nombreTienda) {
-        // Usamos el método del repositorio que filtra por la URL de la tienda
         return productosRepository.findByTiendaNombreUrl(nombreTienda)
                 .stream()
                 .map(this::convertirEntidadAResponse)
@@ -61,7 +67,6 @@ public class ProductosServiceImpl implements ProductosService {
 
     @Override
     public List<ProductosResponse> buscarPorNombre(String nombreTienda, String termino) {
-        // Buscamos por nombre PERO solo dentro de esa tienda
         return productosRepository.findByTiendaNombreUrlAndNombreContainingIgnoreCase(nombreTienda, termino)
                 .stream()
                 .map(this::convertirEntidadAResponse)
@@ -70,14 +75,11 @@ public class ProductosServiceImpl implements ProductosService {
 
     @Override
     public List<ProductosResponse> buscarPorCategoria(String nombreTienda, Long categoriaId) {
-        // Filtramos por categoría PERO solo dentro de esa tienda
         return productosRepository.findByTiendaNombreUrlAndCategoriaId(nombreTienda, categoriaId)
                 .stream()
                 .map(this::convertirEntidadAResponse)
                 .collect(Collectors.toList());
     }
-
-    // --- Métodos por ID (Mantenemos la lógica original) ---
 
     @Override
     public ProductosResponse readById(Long id) {
@@ -106,9 +108,18 @@ public class ProductosServiceImpl implements ProductosService {
         if (productoRequest.getImagen() != null) {
             entityFromDB.setImagen(productoRequest.getImagen());
         }
+        
+        // Validación al actualizar categoría también
         if (productoRequest.getCategoriaId() != null) {
             var categoria = categoriasRepository.findById(productoRequest.getCategoriaId())
                 .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + productoRequest.getCategoriaId()));
+            
+            // 🛡️ VALIDACIÓN DE SEGURIDAD EN UPDATE
+            // La nueva categoría debe ser de la MISMA tienda que el producto original
+            if (!categoria.getTienda().getId().equals(entityFromDB.getTienda().getId())) {
+                 throw new IllegalArgumentException("Error: No puedes mover este producto a una categoría de otra tienda.");
+            }
+
             entityFromDB.setCategoria(categoria);
         }
         
