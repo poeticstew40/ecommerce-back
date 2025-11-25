@@ -4,7 +4,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
@@ -18,11 +17,11 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("API E-commerce Multitienda")
                         .version("1.0")
-                        .description("Documentación para el equipo de Frontend. \n\n" +
-                                     "**Importante:** Para endpoints privados, usar el botón 'Authorize' con el Token.")
-                        .contact(new Contact()
-                                .name("Equipo Backend")
-                                .email("backend@ecommerce.com")))
+                        .description("Documentación técnica para integración Frontend-Backend.\n\n" +
+                                     "Instrucciones de uso:\n" +
+                                     "1. Utilice el endpoint de Login para obtener el token JWT.\n" +
+                                     "2. Haga clic en el botón 'Authorize' (candado) e ingrese el token con el formato: Bearer {token}.\n" +
+                                     "3. Todas las rutas de la tienda siguen el patrón: /api/tiendas/{nombreTienda}/..."))
                 .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
                 .components(new io.swagger.v3.oas.models.Components()
                         .addSecuritySchemes("Bearer Authentication", createAPIKeyScheme()));
