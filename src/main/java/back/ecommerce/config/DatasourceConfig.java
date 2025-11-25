@@ -1,4 +1,4 @@
-package back.ecommerce.configs;
+package back.ecommerce.config;
 
 import javax.sql.DataSource;
 

@@ -21,57 +21,55 @@ import back.ecommerce.services.CategoriasService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 
-
 @RestController
-@RequestMapping(path = "categorias")
+@RequestMapping("/api/tiendas/{nombreTienda}/categorias") // 👈 Ruta base dinámica
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class CategoriasController {
 
     private final CategoriasService categoriasService;
-    
-    @GetMapping(path = "{id}")
-    public ResponseEntity<CategoriasResponse> getCategoriasById (@PathVariable Long id) {
-         return ResponseEntity.ok(this.categoriasService.readById(id));
-    }
 
     @GetMapping
-    public ResponseEntity<List<CategoriasResponse>> getAll() {
-        
-        final List<CategoriasResponse> categorias = this.categoriasService.readAll();
-        
-        
-        return ResponseEntity.ok(categorias);
+    public ResponseEntity<List<CategoriasResponse>> getAllByTienda(@PathVariable String nombreTienda) {
+        return ResponseEntity.ok(this.categoriasService.readAllByTienda(nombreTienda));
     }
-    
 
     @PostMapping
-    public ResponseEntity<CategoriasResponse> postCategorias(@Valid @RequestBody CategoriasRequest request){ 
-        
-        final var categoria = this.categoriasService.create(request);
-    
-        URI location = ServletUriComponentsBuilder
-            .fromCurrentRequest() // Toma la URL base actual
-            .path("/{id}") // Agrega el segmento /ID
-            .buildAndExpand(categoria.getId()) // Sustituye {id} por el valor real
-            .toUri();
-        return ResponseEntity
-            .created(location)
-            .body(categoria);
-        }
+    public ResponseEntity<CategoriasResponse> postCategorias(
+            @PathVariable String nombreTienda,
+            @Valid @RequestBody CategoriasRequest request) {
 
-    @PatchMapping(path = "{id}")
+        final var categoria = this.categoriasService.create(nombreTienda, request);
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                .path("/tienda/{nombreTienda}/categorias/{id}")
+                .buildAndExpand(nombreTienda, categoria.getId())
+                .toUri();
+
+        return ResponseEntity.created(location).body(categoria);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<CategoriasResponse> getCategoriasById(
+            @PathVariable String nombreTienda,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(this.categoriasService.readById(id));
+    }
+
+    @PatchMapping("/{id}")
     public ResponseEntity<CategoriasResponse> updateCategoria(
-        @PathVariable Long id,
-        @RequestBody CategoriasRequest request    
-    ) {
+            @PathVariable String nombreTienda,
+            @PathVariable Long id,
+            @RequestBody CategoriasRequest request) {
         return ResponseEntity.ok(this.categoriasService.update(id, request));
     }
 
-    @DeleteMapping(path = "{id}")
-    public ResponseEntity<Void> deleteCategoria(@PathVariable Long id) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteCategoria(
+            @PathVariable String nombreTienda,
+            @PathVariable Long id) {
         this.categoriasService.delete(id);
         return ResponseEntity.noContent().build();
     }
-
 }

@@ -7,19 +7,17 @@ import back.ecommerce.dtos.PedidosResponse;
 
 public interface PedidosService {
 
-    //Crear
-    PedidosResponse create(PedidosRequest pedido); 
+    // Crear pedido EN una tienda específica
+    PedidosResponse create(String nombreTienda, PedidosRequest request);
 
-    //Obtener por id
+    // Ver pedidos DE una tienda (para el vendedor)
+    List<PedidosResponse> readAllByTienda(String nombreTienda);
+
+    // Ver pedidos de un USUARIO en una tienda específica
+    List<PedidosResponse> findByUsuarioDni(String nombreTienda, Long dni);
+
+    // Métodos por ID (igual que siempre)
     PedidosResponse readById(Long id);
-
-    //Actualizar
-    PedidosResponse update(Long id, PedidosRequest pedido);
-    
-    //Eliminar
+    PedidosResponse update(Long id, PedidosRequest request);
     void delete(Long id);
-
-    //lista de pedidos de un usuario por dni
-    List<PedidosResponse> findByUsuarioDni(Long dni);
-
 }

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -36,6 +37,11 @@ public class PedidosEntity {
     private LocalDateTime fechaPedido;
     private String estado;
     private Double total;
+    private String metodoEnvio;
+    private String direccionEnvio;
+    
+    @Column(columnDefinition = "double default 0.0")
+    private Double costoEnvio;
 
     @ManyToOne
     @JoinColumn(name = "usuario_dni")
@@ -60,4 +66,9 @@ public class PedidosEntity {
             item.setPedido(null);
         }
     } 
+
+    @ManyToOne
+    @JoinColumn(name = "tienda_id")
+    @JsonBackReference("tienda-pedido")
+    private TiendaEntity tienda;
 }
