@@ -30,6 +30,10 @@ public class MercadoPagoController {
         PedidosEntity pedido = pedidosRepository.findById(pedidoId)
                 .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado"));
 
+        if ("CANCELADO".equalsIgnoreCase(pedido.getEstado())) {
+            return ResponseEntity.badRequest().body("Este pedido expiró y fue cancelado. Por favor, crea uno nuevo.");
+        }
+
         if ("PAGADO".equalsIgnoreCase(pedido.getEstado()) || "APROBADO".equalsIgnoreCase(pedido.getEstado())) {
             return ResponseEntity.badRequest().body("Este pedido ya fue pagado.");
         }
