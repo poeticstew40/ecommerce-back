@@ -15,6 +15,11 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+// 👇 IMPORTS DE SWAGGER
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import back.ecommerce.dtos.TiendaRequest;
 import back.ecommerce.dtos.TiendaResponse;
 import back.ecommerce.services.TiendaService;
@@ -31,7 +36,9 @@ public class TiendaController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TiendaResponse> crearTienda(
+            @Parameter(description = "Datos de la tienda", content = @Content(mediaType = "application/json", schema = @Schema(implementation = TiendaRequest.class)))
             @Valid @RequestPart("tienda") TiendaRequest request,
+            
             @RequestPart(value = "file", required = false) MultipartFile file) {
         
         var tiendaCreada = tiendaService.create(request, file);
@@ -52,7 +59,10 @@ public class TiendaController {
     @PatchMapping(value = "/{nombreUrl}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TiendaResponse> actualizarTienda(
             @PathVariable String nombreUrl,
+            
+            @Parameter(description = "Datos a actualizar", content = @Content(mediaType = "application/json", schema = @Schema(implementation = TiendaRequest.class)))
             @RequestPart(value = "tienda", required = false) TiendaRequest request,
+            
             @RequestPart(value = "file", required = false) MultipartFile file) {
         
         TiendaRequest safeRequest = request != null ? request : new TiendaRequest();
