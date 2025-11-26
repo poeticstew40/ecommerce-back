@@ -32,28 +32,24 @@ public class TiendaEntity {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String nombreUrl; // El "slug" (ej: "tienda-de-juan")
+    private String nombreUrl;
 
-    private String nombreFantasia; // El nombre lindo (ej: "La Tienda de Juan")
-    private String logo; // URL de la imagen
+    private String nombreFantasia;
+    private String logo;
     private String descripcion;
 
-    // Relación con el DUEÑO (Vendedor)
     @OneToOne
     @JoinColumn(name = "vendedor_dni")
     private UsuariosEntity vendedor;
 
-    // Relación con sus PRODUCTOS
     @OneToMany(mappedBy = "tienda", cascade = CascadeType.ALL)
     @JsonManagedReference("tienda-producto")
     private List<ProductosEntity> productos;
 
-    // Relación con sus CATEGORÍAS
     @OneToMany(mappedBy = "tienda", cascade = CascadeType.ALL)
     @JsonManagedReference("tienda-categoria")
     private List<CategoriasEntity> categorias;
-    
-    // Relación con sus PEDIDOS
+
     @OneToMany(mappedBy = "tienda")
     @JsonManagedReference("tienda-pedido")
     private List<PedidosEntity> pedidos;

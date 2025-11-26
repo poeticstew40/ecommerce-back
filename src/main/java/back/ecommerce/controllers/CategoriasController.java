@@ -22,7 +22,7 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 
 @RestController
-@RequestMapping("/api/tiendas/{nombreTienda}/categorias") // 👈 Ruta base dinámica
+@RequestMapping("/api/tiendas/{nombreTienda}/categorias")
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class CategoriasController {
@@ -40,13 +40,11 @@ public class CategoriasController {
             @Valid @RequestBody CategoriasRequest request) {
 
         final var categoria = this.categoriasService.create(nombreTienda, request);
-
         URI location = ServletUriComponentsBuilder
                 .fromCurrentContextPath()
                 .path("/tienda/{nombreTienda}/categorias/{id}")
                 .buildAndExpand(nombreTienda, categoria.getId())
                 .toUri();
-
         return ResponseEntity.created(location).body(categoria);
     }
 

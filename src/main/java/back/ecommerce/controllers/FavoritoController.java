@@ -28,10 +28,9 @@ public class FavoritoController {
 
     @PostMapping("/toggle")
     public ResponseEntity<Map<String, String>> toggleFavorito(
-            @PathVariable String nombreTienda, // ✅ Capturamos el slug de la tienda
+            @PathVariable String nombreTienda,
             @Valid @RequestBody FavoritoRequest request) {
         
-        // Pasamos el nombreTienda al servicio para que valide
         String mensaje = favoritoService.toggleFavorito(nombreTienda, request);
         return ResponseEntity.ok(Map.of("mensaje", mensaje));
     }

@@ -3,6 +3,7 @@ package back.ecommerce.controllers;
 import java.net.URI;
 import java.util.List;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -13,7 +14,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import back.ecommerce.dtos.ProductosRequest;
@@ -23,32 +26,29 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 
 @RestController
-@RequestMapping("/api/tiendas/{nombreTienda}/productos") // 👈 ¡Ruta base dinámica!
+@RequestMapping("/api/tiendas/{nombreTienda}/productos")
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class ProductosController {
 
     private final ProductosService productosService;
 
-    // 1. Obtener TODOS los productos de ESA tienda
     @GetMapping
     public ResponseEntity<List<ProductosResponse>> getAllByTienda(
-            @PathVariable String nombreTienda) { // 👈 Captura el slug
-        
+            @PathVariable String nombreTienda) {
         return ResponseEntity.ok(this.productosService.readAllByTienda(nombreTienda));
     }
 
-    // 2. Crear un producto en ESA tienda
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProductosResponse> postProductos(
-            @PathVariable String nombreTienda, // 👈 Captura el slug
-            @Valid @RequestBody ProductosRequest request) {
+            @PathVariable String nombreTienda,
+            @Valid @RequestPart("producto") ProductosRequest request, 
+            @RequestPart(value = "file", required = false) MultipartFile file) {
 
-        final var producto = this.productosService.create(nombreTienda, request);
+        final var producto = this.productosService.create(nombreTienda, request, file);
 
-        // Ajustamos la URI de respuesta para que incluya la tienda
         URI location = ServletUriComponentsBuilder
-                .fromCurrentContextPath() // http://localhost:8080/ecommerce
+                .fromCurrentContextPath()
                 .path("/tienda/{nombreTienda}/productos/{id}")
                 .buildAndExpand(nombreTienda, producto.getId())
                 .toUri();
@@ -56,29 +56,23 @@ public class ProductosController {
         return ResponseEntity.created(location).body(producto);
     }
 
-    // 3. Buscar por nombre (dentro de la tienda)
     @GetMapping("/buscar")
     public ResponseEntity<List<ProductosResponse>> buscarProductos(
             @PathVariable String nombreTienda,
             @RequestParam("q") String termino) {
-
         return ResponseEntity.ok(this.productosService.buscarPorNombre(nombreTienda, termino));
     }
 
-    // 4. Filtrar por categoría (dentro de la tienda)
     @GetMapping("/categoria/{categoriaId}")
     public ResponseEntity<List<ProductosResponse>> buscarPorCategoria(
             @PathVariable String nombreTienda,
             @PathVariable Long categoriaId) {
-
         return ResponseEntity.ok(this.productosService.buscarPorCategoria(nombreTienda, categoriaId));
     }
 
-    // --- Métodos por ID (El ID es único global, pero la URL lleva la tienda por estructura) ---
-
     @GetMapping("/{id}")
     public ResponseEntity<ProductosResponse> getProductosById(
-            @PathVariable String nombreTienda, // Se pide por la URL aunque no se use en el service readById
+            @PathVariable String nombreTienda,
             @PathVariable Long id) {
         return ResponseEntity.ok(this.productosService.readById(id));
     }

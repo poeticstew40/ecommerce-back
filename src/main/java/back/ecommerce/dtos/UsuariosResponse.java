@@ -10,10 +10,8 @@ import lombok.NoArgsConstructor;
 @Data
 @Builder
 public class UsuariosResponse {
-
     private Long dni;
     private String email;
     private String nombre;
     private String apellido;
-
 }

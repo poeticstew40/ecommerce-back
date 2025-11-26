@@ -17,7 +17,6 @@ import back.ecommerce.dtos.UsuariosResponse;
 import back.ecommerce.services.UsuariosService;
 import lombok.AllArgsConstructor;
 
-
 @RestController
 @RequestMapping("/api/usuarios")
 @CrossOrigin(origins = "*") 

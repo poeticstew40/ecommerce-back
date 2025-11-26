@@ -1,0 +1,3687 @@
+package back.ecommerce;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+
+@SpringBootApplication
+@EnableAsync
+@EnableScheduling
+public class EcommerceApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(EcommerceApplication.class, args);
+		System.out.println("E-commerce application started successfully.");
+	}
+
+
+}
+package back.ecommerce.config;
+
+import back.ecommerce.repositories.UsuariosRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+@Configuration
+@RequiredArgsConstructor
+public class ApplicationConfig {
+
+    private final UsuariosRepository usuariosRepository;
+
+    @Bean
+    public UserDetailsService userDetailsService() {
+        return username -> usuariosRepository.findByEmail(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService());
+        authProvider.setPasswordEncoder(passwordEncoder());
+        return authProvider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
+package back.ecommerce.config;
+
+import javax.sql.DataSource;
+
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+
+
+//@Configuration
+public class DatasourceConfig {
+
+    //@Bean
+    public DataSource dataource() {
+        final var datasource = new DriverManagerDataSource();
+        datasource.setDriverClassName("org.h2.Driver");
+        datasource.setUrl("jdbc:h2:mem:testdb");
+        datasource.setUsername("sa");
+        datasource.setPassword("password");
+
+        return datasource;
+
+    }
+}
+package back.ecommerce.config;
+
+import java.io.IOException;
+
+import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import back.ecommerce.services.JwtService;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
+
+    @Override
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        final String authHeader = request.getHeader("Authorization");
+        final String jwt;
+        final String userEmail;
+
+        // 🕵️ LOG 1: Ver si llega el header
+        System.out.println(">>> FILTRO JWT: Procesando request a: " + request.getRequestURI());
+        if (authHeader != null) {
+            System.out.println(">>> FILTRO JWT: Header Authorization encontrado: " + authHeader.substring(0, Math.min(authHeader.length(), 15)) + "...");
+        } else {
+            System.out.println(">>> FILTRO JWT: NO hay header Authorization. Pasando como anónimo.");
+        }
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        jwt = authHeader.substring(7);
+        try {
+            userEmail = jwtService.extractUsername(jwt);
+            System.out.println(">>> FILTRO JWT: Usuario extraído del token: " + userEmail);
+        } catch (Exception e) {
+            System.out.println(">>> FILTRO JWT: Error al extraer usuario del token: " + e.getMessage());
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+            
+            if (jwtService.isTokenValid(jwt, userDetails)) {
+                System.out.println(">>> FILTRO JWT: Token VÁLIDO. Autenticando usuario.");
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                );
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            } else {
+                System.out.println(">>> FILTRO JWT: Token INVÁLIDO para el usuario " + userEmail);
+            }
+        }
+        
+        filterChain.doFilter(request, response);
+    }
+}
+package back.ecommerce.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+
+@Configuration
+public class OpenApiConfig {
+
+    @Bean
+    public OpenAPI customOpenAPI() {
+        return new OpenAPI()
+                .info(new Info()
+                        .title("API E-commerce Multitienda")
+                        .version("1.0")
+                        .description("Documentación técnica para integración Frontend-Backend.\n\n" +
+                                     "Instrucciones de uso:\n" +
+                                     "1. Utilice el endpoint de Login para obtener el token JWT.\n" +
+                                     "2. Haga clic en el botón 'Authorize' (candado) e ingrese el token con el formato: Bearer {token}.\n" +
+                                     "3. Todas las rutas de la tienda siguen el patrón: /api/tiendas/{nombreTienda}/..."))
+                .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
+                .components(new io.swagger.v3.oas.models.Components()
+                        .addSecuritySchemes("Bearer Authentication", createAPIKeyScheme()));
+    }
+
+    private SecurityScheme createAPIKeyScheme() {
+        return new SecurityScheme()
+                .type(SecurityScheme.Type.HTTP)
+                .bearerFormat("JWT")
+                .scheme("bearer");
+    }
+}
+package back.ecommerce.config;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import lombok.RequiredArgsConstructor;
+
+@Configuration
+@EnableWebSecurity
+@RequiredArgsConstructor
+public class SecurityConfiguration {
+
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final AuthenticationProvider authenticationProvider;
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            // 1. ✅ CORS ACTIVADO: Fundamental para que el front se comunique con el back
+            .cors(Customizer.withDefaults())
+            
+            // 2. CSRF Desactivado (Correcto para JWT/Stateless)
+            .csrf(AbstractHttpConfigurer::disable)
+            
+            // 3. Reglas de Autorización (EL ORDEN IMPORTA)
+            .authorizeHttpRequests(auth -> auth
+                // A. Rutas PÚBLICAS (Login, Registro, Docs, Ver Tiendas)
+                // Usamos requestMatchers con HttpMethod para ser más específicos
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
+                .requestMatchers("/api/pagos/webhook").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/tiendas/**").permitAll() // Ver productos es público
+                
+                // B. Rutas PROTEGIDAS (Subir imágenes, Crear tiendas, Comprar)
+                // Cloudinary: Solo usuarios logueados pueden subir fotos
+                .requestMatchers("/api/storage/**").authenticated() 
+                
+                // C. Todo lo demás requiere login
+                .anyRequest().authenticated()
+            )
+
+            // 4. Gestión de Sesión (Stateless)
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+
+            // 5. Providers y Filtros
+            .authenticationProvider(authenticationProvider)
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    // ✅ CONFIGURACIÓN DE CORS (Lo que te está fallando)
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        
+        // En desarrollo "*" está bien. En producción, pon la URL de tu Render/Vercel.
+        configuration.setAllowedOrigins(List.of("*")); 
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
+        configuration.setExposedHeaders(Arrays.asList("Access-Control-Allow-Origin", "Access-Control-Allow-Credentials"));
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+}
+package back.ecommerce.controllers;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam; // 👈 FALTABA ESTE
+import org.springframework.web.bind.annotation.RestController;
+
+import back.ecommerce.dtos.AuthRequest;
+import back.ecommerce.dtos.AuthResponse;
+import back.ecommerce.dtos.RegisterRequest;
+import back.ecommerce.services.AuthService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequestMapping("/api/auth")
+@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final AuthService authService;
+
+    @PostMapping("/register")
+    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+        return ResponseEntity.ok(authService.register(request));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
+        return ResponseEntity.ok(authService.login(request));
+    }
+
+    @GetMapping("/verify")
+    public ResponseEntity<String> verifyAccount(@RequestParam("code") String code) {
+        return ResponseEntity.ok(authService.verifyUser(code));
+    }
+}
+package back.ecommerce.controllers;
+
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import back.ecommerce.dtos.CarritoRequest;
+import back.ecommerce.dtos.CarritoResponse;
+import back.ecommerce.services.CarritoService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequestMapping("/api/tiendas/{nombreTienda}/carrito")
+@CrossOrigin(origins = "*") 
+@RequiredArgsConstructor
+public class CarritoController {
+
+    private final CarritoService carritoService;
+
+    @PostMapping("/agregar")
+    public ResponseEntity<CarritoResponse> agregarAlCarrito(
+            @PathVariable String nombreTienda, // ✅ Recibimos el nombre de la tienda
+            @Valid @RequestBody CarritoRequest request) {
+        
+        return ResponseEntity.ok(carritoService.agregarProducto(nombreTienda, request));
+    }
+
+    @GetMapping("/{usuarioDni}")
+    public ResponseEntity<List<CarritoResponse>> verCarrito(
+            @PathVariable String nombreTienda, 
+            @PathVariable Long usuarioDni) {
+        // Opcional: Podrías filtrar el carrito para mostrar solo items de ESTA tienda
+        return ResponseEntity.ok(carritoService.obtenerCarrito(usuarioDni));
+    }
+
+    @DeleteMapping("/item/{idItem}")
+    public ResponseEntity<Void> eliminarItem(
+            @PathVariable String nombreTienda, 
+            @PathVariable Long idItem) {
+        carritoService.eliminarItem(idItem);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/vaciar/{usuarioDni}")
+    public ResponseEntity<Void> vaciarCarrito(
+            @PathVariable String nombreTienda, 
+            @PathVariable Long usuarioDni) {
+        carritoService.vaciarCarrito(usuarioDni);
+        return ResponseEntity.noContent().build();
+    }
+}
+package back.ecommerce.controllers;
+
+import java.net.URI;
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import back.ecommerce.dtos.CategoriasRequest;
+import back.ecommerce.dtos.CategoriasResponse;
+import back.ecommerce.services.CategoriasService;
+import jakarta.validation.Valid;
+import lombok.AllArgsConstructor;
+
+@RestController
+@RequestMapping("/api/tiendas/{nombreTienda}/categorias") // 👈 Ruta base dinámica
+@CrossOrigin(origins = "*")
+@AllArgsConstructor
+public class CategoriasController {
+
+    private final CategoriasService categoriasService;
+
+    @GetMapping
+    public ResponseEntity<List<CategoriasResponse>> getAllByTienda(@PathVariable String nombreTienda) {
+        return ResponseEntity.ok(this.categoriasService.readAllByTienda(nombreTienda));
+    }
+
+    @PostMapping
+    public ResponseEntity<CategoriasResponse> postCategorias(
+            @PathVariable String nombreTienda,
+            @Valid @RequestBody CategoriasRequest request) {
+
+        final var categoria = this.categoriasService.create(nombreTienda, request);
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                .path("/tienda/{nombreTienda}/categorias/{id}")
+                .buildAndExpand(nombreTienda, categoria.getId())
+                .toUri();
+
+        return ResponseEntity.created(location).body(categoria);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<CategoriasResponse> getCategoriasById(
+            @PathVariable String nombreTienda,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(this.categoriasService.readById(id));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<CategoriasResponse> updateCategoria(
+            @PathVariable String nombreTienda,
+            @PathVariable Long id,
+            @RequestBody CategoriasRequest request) {
+        return ResponseEntity.ok(this.categoriasService.update(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteCategoria(
+            @PathVariable String nombreTienda,
+            @PathVariable Long id) {
+        this.categoriasService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+package back.ecommerce.controllers;
+
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import back.ecommerce.dtos.DireccionRequest;
+import back.ecommerce.dtos.DireccionResponse;
+import back.ecommerce.services.DireccionService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequestMapping("/api/usuarios/direcciones")
+@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
+public class DireccionController {
+
+    private final DireccionService direccionService;
+
+    // Agregar una nueva dirección
+    @PostMapping
+    public ResponseEntity<DireccionResponse> agregarDireccion(@Valid @RequestBody DireccionRequest request) {
+        return ResponseEntity.ok(direccionService.create(request));
+    }
+
+    // Listar todas las direcciones de un usuario
+    @GetMapping("/{dni}")
+    public ResponseEntity<List<DireccionResponse>> listarDirecciones(@PathVariable Long dni) {
+        return ResponseEntity.ok(direccionService.readAllByUsuario(dni));
+    }
+
+    // Eliminar una dirección
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminarDireccion(@PathVariable Long id) {
+        direccionService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+package back.ecommerce.controllers;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+
+import io.swagger.v3.oas.annotations.Hidden;
+
+@ControllerAdvice
+@Hidden
+public class ErrorHandlerController {
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    private ResponseEntity<Map<String, Object>>
+        IllegalArgumentHandler(IllegalArgumentException ex) {
+       final var response = new HashMap<String, Object>();
+       
+        response.put("code", HttpStatus.BAD_REQUEST.value());
+        response.put("status", HttpStatus.BAD_REQUEST.getReasonPhrase());
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    // ✅ NUEVO: Handler para validaciones (@Valid)
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidationErrors(MethodArgumentNotValidException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("code", HttpStatus.BAD_REQUEST.value());
+        response.put("status", "Error de Validación");
+        
+        // Extrae cada campo que falló y su mensaje
+        Map<String, String> errores = new HashMap<>();
+        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+            errores.put(error.getField(), error.getDefaultMessage());
+        }
+        response.put("errors", errores);
+
+        return ResponseEntity.badRequest().body(response);
+    }
+}
+    
+package back.ecommerce.controllers;
+
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import back.ecommerce.dtos.FavoritoRequest;
+import back.ecommerce.dtos.FavoritoResponse;
+import back.ecommerce.services.FavoritoService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequestMapping("/api/tiendas/{nombreTienda}/favoritos")
+@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
+public class FavoritoController {
+
+    private final FavoritoService favoritoService;
+
+    @PostMapping("/toggle")
+    public ResponseEntity<Map<String, String>> toggleFavorito(
+            @PathVariable String nombreTienda, // ✅ Capturamos el slug de la tienda
+            @Valid @RequestBody FavoritoRequest request) {
+        
+        // Pasamos el nombreTienda al servicio para que valide
+        String mensaje = favoritoService.toggleFavorito(nombreTienda, request);
+        return ResponseEntity.ok(Map.of("mensaje", mensaje));
+    }
+
+    @GetMapping("/{usuarioDni}")
+    public ResponseEntity<List<FavoritoResponse>> listarFavoritos(
+            @PathVariable String nombreTienda, 
+            @PathVariable Long usuarioDni) {
+        
+        return ResponseEntity.ok(favoritoService.obtenerFavoritos(nombreTienda, usuarioDni));
+    }
+}
+package back.ecommerce.controllers;
+
+import java.util.Map;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import back.ecommerce.entities.PedidosEntity;
+import back.ecommerce.repositories.PedidosRepository;
+import back.ecommerce.services.MercadoPagoService;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequestMapping("/api/pagos")
+@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
+public class MercadoPagoController {
+
+    private final MercadoPagoService mercadoPagoService;
+    private final PedidosRepository pedidosRepository;
+
+    @PostMapping("/crear/{pedidoId}")
+    public ResponseEntity<?> crearLinkDePago(@PathVariable Long pedidoId) {
+        
+        PedidosEntity pedido = pedidosRepository.findById(pedidoId)
+                .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado"));
+
+        if ("CANCELADO".equalsIgnoreCase(pedido.getEstado())) {
+            return ResponseEntity.badRequest().body("Este pedido expiró y fue cancelado. Por favor, crea uno nuevo.");
+        }
+
+        if ("PAGADO".equalsIgnoreCase(pedido.getEstado()) || "APROBADO".equalsIgnoreCase(pedido.getEstado())) {
+            return ResponseEntity.badRequest().body("Este pedido ya fue pagado.");
+        }
+
+        // Delegamos al servicio que ahora lee las credenciales de la configuración
+        String urlPago = mercadoPagoService.crearPreferencia(pedido);
+        
+        return ResponseEntity.ok(Map.of("url", urlPago));
+    }
+    
+    @PostMapping("/webhook")
+    public ResponseEntity<Void> recibirNotificacion(
+            @RequestParam(value = "topic", required = false) String topic,
+            @RequestParam(value = "id", required = false) Long id) {
+
+        if ("payment".equals(topic) && id != null) {
+            System.out.println("🔔 Notificación de Pago recibida. ID: " + id);
+            mercadoPagoService.procesarNotificacion(id);
+        }
+        
+        return ResponseEntity.ok().build();
+    }
+}
+package back.ecommerce.controllers;
+
+import java.net.URI;
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import back.ecommerce.dtos.PedidosRequest;
+import back.ecommerce.dtos.PedidosResponse;
+import back.ecommerce.services.PedidosService;
+import lombok.AllArgsConstructor;
+
+@RestController
+@RequestMapping("/api/tiendas/{nombreTienda}/pedidos") // 👈 Ruta base dinámica
+@CrossOrigin(origins = "*")
+@AllArgsConstructor
+public class PedidosController {
+
+    private final PedidosService pedidosService;
+
+    // 1. Crear Pedido en la tienda
+    @PostMapping
+    public ResponseEntity<PedidosResponse> postPedidos(
+            @PathVariable String nombreTienda,
+            @RequestBody PedidosRequest request) {
+
+        final var pedido = this.pedidosService.create(nombreTienda, request);
+        
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                .path("/tienda/{nombreTienda}/pedidos/{id}")
+                .buildAndExpand(nombreTienda, pedido.getId())
+                .toUri();
+                
+        return ResponseEntity.created(location).body(pedido);
+    }
+
+    // 2. Ver todos los pedidos de la tienda (Para el admin/vendedor)
+    @GetMapping
+    public ResponseEntity<List<PedidosResponse>> getAllByTienda(@PathVariable String nombreTienda) {
+        return ResponseEntity.ok(this.pedidosService.readAllByTienda(nombreTienda));
+    }
+
+    // 3. Ver pedidos de un usuario específico en esta tienda
+    @GetMapping("/usuario/{dni}")
+    public ResponseEntity<List<PedidosResponse>> getPedidosByUsuarioDni(
+            @PathVariable String nombreTienda,
+            @PathVariable Long dni) {
+        return ResponseEntity.ok(this.pedidosService.findByUsuarioDni(nombreTienda, dni));
+    }
+
+    // --- Métodos por ID ---
+
+    @GetMapping("/{id}")
+    public ResponseEntity<PedidosResponse> getPedidosById(
+            @PathVariable String nombreTienda,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(this.pedidosService.readById(id));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<PedidosResponse> updatePedidos(
+            @PathVariable String nombreTienda,
+            @PathVariable Long id, 
+            @RequestBody PedidosRequest request) {
+        return ResponseEntity.ok(this.pedidosService.update(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletePedidos(
+            @PathVariable String nombreTienda,
+            @PathVariable Long id) {
+        this.pedidosService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+package back.ecommerce.controllers;
+
+import java.net.URI;
+import java.util.List;
+
+import org.springframework.http.MediaType; // 👈 Importante
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart; // 👈 Importante
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile; // 👈 Importante
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import back.ecommerce.dtos.ProductosRequest;
+import back.ecommerce.dtos.ProductosResponse;
+import back.ecommerce.services.ProductosService;
+import jakarta.validation.Valid;
+import lombok.AllArgsConstructor;
+
+@RestController
+[cite_start]@RequestMapping("/api/tiendas/{nombreTienda}/productos") // [cite: 98]
+@CrossOrigin(origins = "*")
+@AllArgsConstructor
+public class ProductosController {
+
+    private final ProductosService productosService;
+
+    // 1. Obtener TODOS los productos de ESA tienda
+    @GetMapping
+    public ResponseEntity<List<ProductosResponse>> getAllByTienda(
+            @PathVariable String nombreTienda) {
+        
+        return ResponseEntity.ok(this.productosService.readAllByTienda(nombreTienda)); [cite_start]// [cite: 99]
+    }
+
+    // 2. Crear un producto en ESA tienda (MODIFICADO para Carga de Archivos)
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // 👈 Habilita multipart
+    public ResponseEntity<ProductosResponse> postProductos(
+            @PathVariable String nombreTienda,
+            
+            // Recibe el JSON del producto
+            @Valid @RequestPart("producto") ProductosRequest request, 
+            
+            // Recibe el archivo de imagen (Opcional por si no suben foto)
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+
+        [cite_start]// Pasamos el archivo al servicio [cite: 100] (Asumiendo que ya actualizaste el Service)
+        final var producto = this.productosService.create(nombreTienda, request, file);
+
+        // Ajustamos la URI de respuesta para que incluya la tienda
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                [cite_start].path("/tienda/{nombreTienda}/productos/{id}") // [cite: 101]
+                .buildAndExpand(nombreTienda, producto.getId())
+                .toUri();
+
+        return ResponseEntity.created(location).body(producto);
+    }
+
+    // 3. Buscar por nombre (dentro de la tienda)
+    @GetMapping("/buscar")
+    public ResponseEntity<List<ProductosResponse>> buscarProductos(
+            @PathVariable String nombreTienda,
+            @RequestParam("q") String termino) {
+
+        return ResponseEntity.ok(this.productosService.buscarPorNombre(nombreTienda, termino)); [cite_start]// [cite: 102]
+    }
+
+    // 4. Filtrar por categoría (dentro de la tienda)
+    @GetMapping("/categoria/{categoriaId}")
+    public ResponseEntity<List<ProductosResponse>> buscarPorCategoria(
+            @PathVariable String nombreTienda,
+            @PathVariable Long categoriaId) {
+
+        return ResponseEntity.ok(this.productosService.buscarPorCategoria(nombreTienda, categoriaId)); [cite_start]// [cite: 103]
+    }
+
+    // --- Métodos por ID ---
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductosResponse> getProductosById(
+            @PathVariable String nombreTienda,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(this.productosService.readById(id)); [cite_start]// [cite: 104]
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<ProductosResponse> updateProductos(
+            @PathVariable String nombreTienda,
+            @PathVariable Long id,
+            @RequestBody ProductosRequest request) {
+        return ResponseEntity.ok(this.productosService.update(id, request)); [cite_start]// [cite: 105]
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProductos(
+            @PathVariable String nombreTienda,
+            @PathVariable Long id) {
+        this.productosService.delete(id); [cite_start]// [cite: 106]
+        return ResponseEntity.noContent().build();
+    }
+}
+package back.ecommerce.controllers;
+
+import java.util.Map;
+
+import org.springframework.http.MediaType; // 👈 Importante: Agrega este import
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import back.ecommerce.services.CloudinaryService;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequestMapping("/api/storage")
+@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
+public class StorageController {
+
+    private final CloudinaryService cloudinaryService;
+
+    // ✅ CAMBIO CLAVE: Agregar consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
+        String url = cloudinaryService.uploadFile(file);
+        return ResponseEntity.ok(Map.of("url", url));
+    }
+}
+package back.ecommerce.controllers;
+
+import java.net.URI;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import back.ecommerce.dtos.TiendaRequest;
+import back.ecommerce.dtos.TiendaResponse;
+import back.ecommerce.services.TiendaService;
+import jakarta.validation.Valid;
+import lombok.AllArgsConstructor;
+
+@RestController
+@RequestMapping("/api/tiendas") // Endpoint base para gestión de tiendas
+@CrossOrigin(origins = "*")
+@AllArgsConstructor
+public class TiendaController {
+
+    private final TiendaService tiendaService;
+
+    @PostMapping
+    public ResponseEntity<TiendaResponse> crearTienda(@Valid @RequestBody TiendaRequest request) {
+        var tiendaCreada = tiendaService.create(request);
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{nombreUrl}")
+                .buildAndExpand(tiendaCreada.getNombreUrl())
+                .toUri();
+
+        return ResponseEntity.created(location).body(tiendaCreada);
+    }
+
+    @GetMapping("/{nombreUrl}")
+    public ResponseEntity<TiendaResponse> obtenerTienda(@PathVariable String nombreUrl) {
+        return ResponseEntity.ok(tiendaService.readByNombreUrl(nombreUrl));
+    }
+}
+package back.ecommerce.controllers;
+
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import back.ecommerce.dtos.UsuariosRequest;
+import back.ecommerce.dtos.UsuariosResponse;
+import back.ecommerce.services.UsuariosService;
+import lombok.AllArgsConstructor;
+
+
+@RestController
+@RequestMapping("/api/usuarios")
+@CrossOrigin(origins = "*") 
+@AllArgsConstructor
+public class UsuariosController {
+
+    private final UsuariosService usuariosService;
+
+    @GetMapping()
+    public ResponseEntity<List<UsuariosResponse>> obtenerTodosLosUsuarios() {
+        return ResponseEntity.ok(usuariosService.readAll());
+    }
+
+    @GetMapping(path = "{dni}")
+    public ResponseEntity<UsuariosResponse> getUsuarios(@PathVariable Long dni) {
+       return ResponseEntity.ok(this.usuariosService.readByDni(dni));
+    }
+    
+    @PatchMapping(path = "{dni}")
+    public ResponseEntity<UsuariosResponse> actualizarUsuario(@PathVariable Long dni, @RequestBody UsuariosRequest request) {
+        return ResponseEntity.ok(usuariosService.update(dni, request));
+    }
+
+    @DeleteMapping(path = "{dni}")
+    public ResponseEntity<Void> eliminarUsuario(@PathVariable Long dni) {
+        usuariosService.delete(dni);
+        return ResponseEntity.noContent().build();
+    }
+}
+package back.ecommerce.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class AuthRequest {
+
+    private String email;
+    String password;
+    
+}
+package back.ecommerce.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class AuthResponse {
+    private String token;
+}
+package back.ecommerce.dtos;
+
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class CarritoRequest {
+
+    @NotNull(message = "El usuario es obligatorio")
+    private Long usuarioDni;
+
+    @NotNull(message = "El producto es obligatorio")
+    private Long productoId;
+
+    @Min(value = 1, message = "La cantidad debe ser al menos 1")
+    private Integer cantidad;
+}
+package back.ecommerce.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class CarritoResponse {
+
+    private Long idItem;      
+    private Long productoId;
+    private String nombreProducto;
+    private String imagenProducto;
+    private Double precioUnitario;
+    private Integer cantidad;
+    private Double subtotal;  
+    private Long tiendaId; 
+    private String nombreTienda;
+
+}
+package back.ecommerce.dtos;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+public class CategoriasRequest {
+
+    @NotBlank(message="El nombre de la categoria no puede estar vacio")
+    private String nombre;
+
+}
+package back.ecommerce.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+public class CategoriasResponse {
+
+    private Long id;
+    private String nombre;
+
+}
+package back.ecommerce.dtos;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class DireccionRequest {
+
+    @NotNull(message = "El DNI del usuario es obligatorio")
+    private Long usuarioDni;
+
+    @NotBlank(message = "La calle es obligatoria")
+    private String calle;
+
+    @NotBlank(message = "El número es obligatorio")
+    private String numero;
+
+    private String piso;
+    private String departamento;
+
+    @NotBlank(message = "La localidad es obligatoria")
+    private String localidad;
+
+    @NotBlank(message = "La provincia es obligatoria")
+    private String provincia;
+
+    @NotBlank(message = "El código postal es obligatorio")
+    private String codigoPostal;
+}
+package back.ecommerce.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class DireccionResponse {
+
+    private Long id;
+    private String calle;
+    private String numero;
+    private String piso;
+    private String departamento;
+    private String localidad;
+    private String provincia;
+    private String codigoPostal;
+    private Long usuarioDni;
+}
+package back.ecommerce.dtos;
+
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+@Data
+public class FavoritoRequest {
+    @NotNull private Long usuarioDni;
+    @NotNull private Long productoId;
+}
+package back.ecommerce.dtos;
+
+import lombok.Builder;
+import lombok.Data;
+
+@Data
+@Builder
+public class FavoritoResponse {
+    private Long id;
+    private Long productoId;
+    private String nombreProducto;
+    private String imagen;
+    private Double precio;
+}
+package back.ecommerce.dtos;
+
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+public class ItemsPedidosRequest {
+
+    @Min(value = 1, message = "La cantidad debe ser al menos 1")
+    private int cantidad;
+
+    @NotNull(message = "El ID del producto es obligatorio")
+    private Long productoId;
+
+}
+package back.ecommerce.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+public class ItemsPedidosResponse {
+
+    private int cantidad;
+    private Double precioUnitario;
+    private String nombreProducto;
+    private String descripcionProducto;
+    private Long idProducto;
+
+}
+package back.ecommerce.dtos;
+
+import java.util.List;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+public class PedidosRequest {
+
+    private Long id;
+    private String estado;
+    private Double total;
+    private List<ItemsPedidosResponse> items;
+    private Long usuarioDni;
+    private String metodoEnvio;
+    private String direccionEnvio;
+    private Double costoEnvio;
+
+}
+package back.ecommerce.dtos;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+public class PedidosResponse {
+
+    private Long id;
+    private String estado;
+    private Double total;
+    private LocalDateTime fechaPedido;
+    private List<ItemsPedidosResponse> items;
+    private Long usuarioDni;
+
+}
+package back.ecommerce.dtos;
+
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+public class ProductosRequest {
+
+    private Long id;
+
+    @NotNull(message = "El ID de la categoría es obligatorio")
+    private Long categoriaId;
+
+    @NotBlank(message = "El nombre del producto es obligatorio")
+    @Size(min = 3, max = 100, message = "El nombre debe tener entre 3 y 100 caracteres")
+    private String nombre;
+
+    @Size(max = 500, message = "La descripción no puede superar los 500 caracteres")
+    private String descripcion;
+
+    @NotNull(message = "El precio es obligatorio")
+    @Positive(message = "El precio debe ser mayor a cero")
+    private Double precio;
+
+    @NotNull(message = "El stock es obligatorio")
+    @Min(value = 0, message = "El stock no puede ser negativo")
+    private Integer stock;
+
+}
+package back.ecommerce.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+public class ProductosResponse {
+
+    private Long id;
+    private Long categoriaId;
+    private String nombre;
+    private String descripcion;
+    private Double precio;
+    private Integer stock;
+    private String categoriaNombre;
+    private String imagen;
+}
+package back.ecommerce.dtos;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class RegisterRequest {
+
+    @NotNull(message = "El DNI es obligatorio")
+    private Long dni;
+
+    @NotBlank(message = "El nombre es obligatorio")
+    private String nombre;
+
+    @NotBlank(message = "El apellido es obligatorio")
+    private String apellido;
+
+    @NotBlank(message = "El email es obligatorio")
+    @Email(message = "Formato de email inválido")
+    private String email;
+
+    @NotBlank(message = "La contraseña es obligatoria")
+    private String password;
+    
+    // Opcional: Podrías recibir el ROL si querés crear vendedores desde acá
+    // private String rol; 
+}
+package back.ecommerce.dtos;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class TiendaRequest {
+
+    @NotBlank(message = "El nombre URL es obligatorio")
+    @Pattern(regexp = "^[a-z0-9-]+$", message = "El nombre URL solo puede tener letras minúsculas, números y guiones (ej: mi-tienda)")
+    private String nombreUrl; // Ej: "la-ferreteria" (sin espacios)
+
+    @NotBlank(message = "El nombre de fantasía es obligatorio")
+    private String nombreFantasia; // Ej: "La Ferretería de Juan"
+
+    private String logo;
+    private String descripcion;
+
+    @NotNull(message = "El DNI del vendedor es obligatorio")
+    private Long vendedorDni;
+}
+package back.ecommerce.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class TiendaResponse {
+
+    private Long id;
+    private String nombreUrl;
+    private String nombreFantasia;
+    private String logo;
+    private String descripcion;
+    private Long vendedorDni;
+    private String vendedorNombre;
+    
+}
+package back.ecommerce.dtos;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+public class UsuariosRequest {
+    
+    @NotNull(message = "El DNI es obligatorio")
+    private Long dni;
+
+    @NotBlank(message = "El email es obligatorio")
+    @Email(message = "El formato del email es inválido (ejemplo@correo.com)")
+    private String email;
+
+    @NotBlank(message = "La contraseña es obligatoria")
+    @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
+    private String password;
+
+    @NotBlank(message = "El nombre es obligatorio")
+    private String nombre;
+
+    @NotBlank(message = "El apellido es obligatorio")
+    private String apellido;
+}
+package back.ecommerce.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor
+@AllArgsConstructor
+@Data
+@Builder
+public class UsuariosResponse {
+
+    private Long dni;
+    private String email;
+    private String nombre;
+    private String apellido;
+
+}
+package back.ecommerce.entities;
+
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@Entity
+@Table(name = "categorias")
+@AllArgsConstructor
+@NoArgsConstructor
+public class CategoriasEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String nombre;
+
+    @OneToMany(mappedBy = "categoria")
+    @JsonManagedReference("categoria-producto")
+    private List<ProductosEntity> productos;
+
+    @ManyToOne
+    @JoinColumn(name = "tienda_id")
+    @JsonBackReference("tienda-categoria")
+    private TiendaEntity tienda;
+}
+package back.ecommerce.entities;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "direcciones")
+public class DireccionEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String calle;
+
+    @Column(nullable = false)
+    private String numero;
+
+    private String piso;        // Opcional
+    private String departamento; // Opcional
+
+    @Column(nullable = false)
+    private String localidad;
+
+    @Column(nullable = false)
+    private String provincia;
+
+    @Column(nullable = false)
+    private String codigoPostal;
+
+    // Relación con el Usuario
+    @ManyToOne
+    @JoinColumn(name = "usuario_dni", nullable = false)
+    @JsonBackReference("usuario-direccion") // Evita bucle infinito al convertir a JSON
+    private UsuariosEntity usuario;
+}
+package back.ecommerce.entities;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "favoritos", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"usuario_dni", "producto_id"}) // Evita duplicados en BD
+})
+public class FavoritoEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "usuario_dni")
+    @JsonBackReference("usuario-favorito")
+    private UsuariosEntity usuario;
+
+    @ManyToOne
+    @JoinColumn(name = "producto_id")
+    private ProductosEntity producto;
+}
+package back.ecommerce.entities;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@Entity
+@Table(name = "items_carrito")
+@AllArgsConstructor
+@NoArgsConstructor
+public class ItemCarritoEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "usuario_dni")
+    private UsuariosEntity usuario;
+
+    @ManyToOne
+    @JoinColumn(name = "producto_id")
+    private ProductosEntity producto;
+
+    private Integer cantidad;
+}
+package back.ecommerce.entities;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@Entity
+@Table(name = "items_pedidos")
+@AllArgsConstructor
+@NoArgsConstructor
+public class ItemsPedidosEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private int cantidad;
+    private Double precioUnitario;
+
+    @ManyToOne
+    @JoinColumn(name = "pedido_id")
+    @JsonBackReference("pedido-item")
+    private PedidosEntity pedido;
+
+    @ManyToOne
+    @JoinColumn(name = "producto_id")
+    @JsonBackReference("producto-item")
+    private ProductosEntity producto;
+}
+package back.ecommerce.entities;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@Entity
+@Table(name = "pedidos")
+@AllArgsConstructor
+@NoArgsConstructor
+public class PedidosEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private LocalDateTime fechaPedido;
+    private String estado;
+    private Double total;
+    private String metodoEnvio;
+    private String direccionEnvio;
+    
+    @Column(columnDefinition = "double default 0.0")
+    private Double costoEnvio;
+
+    @ManyToOne
+    @JoinColumn(name = "usuario_dni")
+    @JsonBackReference("usuario-pedido")
+    private UsuariosEntity usuario;
+
+    @JsonManagedReference("pedido-item")
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ItemsPedidosEntity> itemsPedido;
+
+    public void addItemPedido(ItemsPedidosEntity item) {
+        if (this.itemsPedido == null) {
+            this.itemsPedido = new ArrayList<>();
+        }
+        this.itemsPedido.add(item);
+        item.setPedido(this);
+    }
+
+    public void removeItemPedido(ItemsPedidosEntity item) {
+        if (this.itemsPedido != null) {
+            this.itemsPedido.remove(item);
+            item.setPedido(null);
+        }
+    } 
+
+    @ManyToOne
+    @JoinColumn(name = "tienda_id")
+    @JsonBackReference("tienda-pedido")
+    private TiendaEntity tienda;
+}
+package back.ecommerce.entities;
+
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonBackReference; // <-- IMPORT
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne; // <-- IMPORT
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter; // <-- IMPORT
+
+@Getter
+@Setter
+@Entity
+@Table(name = "productos")
+@AllArgsConstructor
+@NoArgsConstructor
+public class ProductosEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String nombre;
+    private String descripcion;
+    private Double precio;
+    private Integer stock;
+    private String imagen;
+    
+    @ManyToOne
+    @JoinColumn(name = "categoria_id")
+    @JsonBackReference("categoria-producto")
+    private CategoriasEntity categoria;
+
+    @OneToMany(mappedBy = "producto")
+    @JsonManagedReference("producto-item")
+    private List<ItemsPedidosEntity> itemsPedido;
+
+    // ✅ NUEVO: A qué tienda pertenece
+    @ManyToOne
+    @JoinColumn(name = "tienda_id")
+    @JsonBackReference("tienda-producto")
+    private TiendaEntity tienda;
+}
+package back.ecommerce.entities;
+
+public enum Rol {
+    COMPRADOR,
+    VENDEDOR,
+    ADMIN_PLATAFORMA // (Opcional, por si ustedes quieren entrar a ver todo)
+}
+package back.ecommerce.entities;
+
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@Entity
+@Table(name = "tiendas")
+@AllArgsConstructor
+@NoArgsConstructor
+public class TiendaEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true, nullable = false)
+    private String nombreUrl; // El "slug" (ej: "tienda-de-juan")
+
+    private String nombreFantasia; // El nombre lindo (ej: "La Tienda de Juan")
+    private String logo; // URL de la imagen
+    private String descripcion;
+
+    // Relación con el DUEÑO (Vendedor)
+    @OneToOne
+    @JoinColumn(name = "vendedor_dni")
+    private UsuariosEntity vendedor;
+
+    // Relación con sus PRODUCTOS
+    @OneToMany(mappedBy = "tienda", cascade = CascadeType.ALL)
+    @JsonManagedReference("tienda-producto")
+    private List<ProductosEntity> productos;
+
+    // Relación con sus CATEGORÍAS
+    @OneToMany(mappedBy = "tienda", cascade = CascadeType.ALL)
+    @JsonManagedReference("tienda-categoria")
+    private List<CategoriasEntity> categorias;
+    
+    // Relación con sus PEDIDOS
+    @OneToMany(mappedBy = "tienda")
+    @JsonManagedReference("tienda-pedido")
+    private List<PedidosEntity> pedidos;
+}
+package back.ecommerce.entities;
+
+import java.util.Collection;
+import java.util.List;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "usuarios")
+public class UsuariosEntity implements UserDetails {
+
+    @Id
+    private Long dni;
+    private String email;
+    private String password;
+    private String nombre;
+    private String apellido;
+
+    @Enumerated(EnumType.STRING)
+    private Rol rol; // Asegurate de tener el Enum Rol creado
+
+    @Column(columnDefinition = "boolean default false")
+    private boolean emailVerificado; 
+    
+    private String verificationCode; // El código UUID que va en el link
+
+    @OneToMany(mappedBy = "usuario")
+    @JsonManagedReference("usuario-pedido")
+    private List<PedidosEntity> pedidos;
+
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("usuario-direccion")
+    private List<DireccionEntity> direcciones;
+
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("usuario-favorito")
+    private List<FavoritoEntity> favoritos;
+
+    // --- MÉTODOS DE USER DETAILS (OBLIGATORIOS) ---
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority(rol.name()));
+    }
+
+    @Override
+    public String getUsername() {
+        return email; // Usamos el email como usuario
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() { return true; }
+
+    @Override
+    public boolean isAccountNonLocked() { return true; }
+
+    @Override
+    public boolean isCredentialsNonExpired() { return true; }
+
+    @Override
+    public boolean isEnabled() { return true; }
+}
+package back.ecommerce.repositories;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import back.ecommerce.entities.ItemCarritoEntity;
+
+public interface CarritoRepository extends JpaRepository<ItemCarritoEntity, Long> {
+
+    // Buscar todo el carrito de un usuario
+    List<ItemCarritoEntity> findByUsuarioDni(Long dni);
+
+    // Buscar si ya existe este producto en el carrito de este usuario (para sumar cantidad y no duplicar)
+    Optional<ItemCarritoEntity> findByUsuarioDniAndProductoId(Long dni, Long productoId);
+
+    // Vaciar carrito del usuario
+    void deleteByUsuarioDni(Long dni);
+}
+package back.ecommerce.repositories;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import back.ecommerce.entities.CategoriasEntity;
+
+public interface CategoriasRepository extends JpaRepository<CategoriasEntity, Long>{
+
+
+
+    // Traer todas las categorías DE ESA TIENDA
+    List<CategoriasEntity> findByTiendaNombreUrl(String nombreUrl);
+
+}
+package back.ecommerce.repositories;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import back.ecommerce.entities.DireccionEntity;
+
+public interface DireccionRepository extends JpaRepository<DireccionEntity, Long> {
+    
+    // Buscar todas las direcciones de un usuario
+    List<DireccionEntity> findByUsuarioDni(Long dni);
+}
+package back.ecommerce.repositories;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import back.ecommerce.entities.FavoritoEntity;
+
+public interface FavoritoRepository extends JpaRepository<FavoritoEntity, Long> {
+
+
+    List<FavoritoEntity> findByUsuarioDniAndProducto_Tienda_NombreUrl(Long dni, String nombreUrl);
+
+    boolean existsByUsuarioDniAndProductoId(Long dni, Long productoId);
+
+    void deleteByUsuarioDniAndProductoId(Long dni, Long productoId);
+
+}
+package back.ecommerce.repositories;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import back.ecommerce.entities.ItemsPedidosEntity;
+
+public interface ItemsPedidosRepository extends JpaRepository<ItemsPedidosEntity, Long>{
+
+}
+package back.ecommerce.repositories;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import back.ecommerce.entities.PedidosEntity;
+
+public interface PedidosRepository extends JpaRepository<PedidosEntity, Long>{
+
+    // Ver todos los pedidos recibidos por UNA TIENDA (para el panel del vendedor)
+    List<PedidosEntity> findByTiendaNombreUrl(String nombreUrl);
+
+    // Ver los pedidos que hizo UN COMPRADOR en una tienda específica
+    List<PedidosEntity> findByTiendaNombreUrlAndUsuarioDni(String nombreUrl, Long dni);
+
+    // Buscar pedidos por estado y fecha límite
+    List<PedidosEntity> findByEstadoAndFechaPedidoBefore(String estado, LocalDateTime fechaLimite);
+
+}
+package back.ecommerce.repositories;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import back.ecommerce.entities.ProductosEntity;
+
+public interface ProductosRepository extends JpaRepository<ProductosEntity, Long>{
+
+    // Buscar productos de una tienda específica (usando el slug de la URL)
+    List<ProductosEntity> findByTiendaNombreUrl(String nombreUrl);
+
+    // Buscar por nombre, PERO solo dentro de esa tienda (para que no busque en otras)
+    List<ProductosEntity> findByTiendaNombreUrlAndNombreContainingIgnoreCase(String nombreUrl, String termino);
+
+    // Filtrar por categoría, PERO solo dentro de esa tienda
+    List<ProductosEntity> findByTiendaNombreUrlAndCategoriaId(String nombreUrl, Long categoriaId);
+
+}
+package back.ecommerce.repositories;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import back.ecommerce.entities.TiendaEntity;
+
+public interface TiendaRepository extends JpaRepository<TiendaEntity, Long> {
+    // Buscar tienda por su "slug" (ej: "juan")
+    Optional<TiendaEntity> findByNombreUrl(String nombreUrl);
+}
+package back.ecommerce.repositories;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import back.ecommerce.entities.UsuariosEntity;
+
+public interface UsuariosRepository extends JpaRepository<UsuariosEntity, Long>{
+
+    Optional<UsuariosEntity> findByEmail(String email);
+
+    Optional<UsuariosEntity> findByVerificationCode(String verificationCode);
+    
+}
+package back.ecommerce.services;
+
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import back.ecommerce.dtos.AuthRequest;
+import back.ecommerce.dtos.AuthResponse;
+import back.ecommerce.dtos.RegisterRequest;
+import back.ecommerce.entities.Rol;
+import back.ecommerce.entities.UsuariosEntity;
+import back.ecommerce.repositories.UsuariosRepository;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final UsuariosRepository usuariosRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
+    private final EmailService emailService;
+
+    // ✅ INYECCIÓN DE LA URL DEL BACKEND (Desde Render/Properties)
+    @Value("${app.backend.url}")
+    private String backendUrl;
+
+    public AuthResponse register(RegisterRequest request) {
+        if (usuariosRepository.existsById(request.getDni())) {
+            throw new IllegalArgumentException("Ya existe un usuario con el DNI " + request.getDni());
+        }
+        if (usuariosRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("El email " + request.getEmail() + " ya está registrado");
+        }
+
+        String codigoVerificacion = UUID.randomUUID().toString();
+
+        var user = UsuariosEntity.builder()
+                .dni(request.getDni())
+                .nombre(request.getNombre())
+                .apellido(request.getApellido())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .rol(Rol.COMPRADOR)
+                .emailVerificado(false)
+                .verificationCode(codigoVerificacion)
+                .build();
+
+        usuariosRepository.save(user);
+
+        String link = backendUrl + "/api/auth/verify?code=" + codigoVerificacion;
+        
+        String mensaje = "Hola " + user.getNombre() + "!\n\n" +
+                         "Gracias por registrarte. Para activar tu cuenta, hacé clic en el siguiente enlace:\n\n" +
+                         link + "\n\n" +
+                         "Si no solicitaste esto, ignorá este mensaje.";
+
+        emailService.enviarCorreo(user.getEmail(), "Verificá tu cuenta", mensaje);
+
+        var jwtToken = jwtService.generateToken(user);
+        return AuthResponse.builder().token(jwtToken).build();
+    }
+
+    public AuthResponse login(AuthRequest request) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        );
+        var user = usuariosRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario o contraseña incorrectos"));
+
+        var jwtToken = jwtService.generateToken(user);
+        return AuthResponse.builder().token(jwtToken).build();
+    }
+
+    public String verifyUser(String code) {
+        UsuariosEntity user = usuariosRepository.findByVerificationCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("Código de verificación inválido o expirado"));
+
+        if (user.isEmailVerificado()) {
+            return "Tu cuenta ya estaba verificada. Puedes iniciar sesión.";
+        }
+
+        user.setEmailVerificado(true);
+        user.setVerificationCode(null);
+        usuariosRepository.save(user);
+
+        return "¡Cuenta verificada con éxito! Ya podés cerrar esta ventana e iniciar sesión.";
+    }
+}
+package back.ecommerce.services;
+
+import java.util.List;
+
+import back.ecommerce.dtos.CarritoRequest;
+import back.ecommerce.dtos.CarritoResponse;
+
+public interface CarritoService {
+
+    // Agregar producto o sumar cantidad si ya existe
+    CarritoResponse agregarProducto(String nombreTienda, CarritoRequest request);
+    
+    // Ver el carrito completo del usuario
+    List<CarritoResponse> obtenerCarrito(Long usuarioDni);
+    
+    // Eliminar un item específico
+    void eliminarItem(Long idItem);
+    
+    // Vaciar todo el carrito del usuario
+    void vaciarCarrito(Long usuarioDni);
+}
+package back.ecommerce.services;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import back.ecommerce.dtos.CarritoRequest;
+import back.ecommerce.dtos.CarritoResponse;
+import back.ecommerce.entities.ItemCarritoEntity;
+import back.ecommerce.repositories.CarritoRepository;
+import back.ecommerce.repositories.ProductosRepository;
+import back.ecommerce.repositories.UsuariosRepository;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class CarritoServiceImpl implements CarritoService {
+
+    private final CarritoRepository carritoRepository;
+    private final ProductosRepository productosRepository;
+    private final UsuariosRepository usuariosRepository;
+
+    @Override
+    public CarritoResponse agregarProducto(String nombreTienda, CarritoRequest request) {
+        
+        // 1. Buscar Usuario
+        var usuario = usuariosRepository.findById(request.getUsuarioDni())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + request.getUsuarioDni()));
+
+        // 2. Buscar Producto
+        var producto = productosRepository.findById(request.getProductoId())
+                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con ID: " + request.getProductoId()));
+
+        // 3. ✅ VALIDACIÓN MULTITIENDA
+        if (!producto.getTienda().getNombreUrl().equals(nombreTienda)) {
+            throw new IllegalArgumentException("Error de Seguridad: El producto '" + producto.getNombre() + 
+                                               "' pertenece a la tienda '" + producto.getTienda().getNombreUrl() + 
+                                               "' y no a '" + nombreTienda + "'.");
+        }
+
+        // 4. Validar Stock
+        if (producto.getStock() < request.getCantidad()) {
+            throw new IllegalArgumentException("No hay suficiente stock. Disponible: " + producto.getStock());
+        }
+
+        // 5. Lógica de Agregar o Sumar
+        var itemExistente = carritoRepository.findByUsuarioDniAndProductoId(request.getUsuarioDni(), request.getProductoId());
+
+        ItemCarritoEntity itemGuardado;
+
+        if (itemExistente.isPresent()) {
+            // Si ya existe, actualizamos la cantidad
+            var item = itemExistente.get();
+            item.setCantidad(item.getCantidad() + request.getCantidad());
+            
+            // Re-validamos stock con la nueva cantidad total
+            if (producto.getStock() < item.getCantidad()) {
+                throw new IllegalArgumentException("Stock insuficiente para la cantidad total acumulada.");
+            }
+            
+            itemGuardado = carritoRepository.save(item);
+        } else {
+            // Si no existe, creamos uno nuevo
+            var nuevoItem = new ItemCarritoEntity();
+            nuevoItem.setUsuario(usuario);
+            nuevoItem.setProducto(producto);
+            nuevoItem.setCantidad(request.getCantidad());
+            itemGuardado = carritoRepository.save(nuevoItem);
+        }
+
+        return convertirAResponse(itemGuardado);
+    }
+
+    @Override
+    public List<CarritoResponse> obtenerCarrito(Long usuarioDni) {
+        return carritoRepository.findByUsuarioDni(usuarioDni).stream()
+                .map(this::convertirAResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void eliminarItem(Long idItem) {
+        if (!carritoRepository.existsById(idItem)) {
+            throw new IllegalArgumentException("El item del carrito con ID " + idItem + " no existe.");
+        }
+        carritoRepository.deleteById(idItem);
+    }
+
+    @Override
+    public void vaciarCarrito(Long usuarioDni) {
+        carritoRepository.deleteByUsuarioDni(usuarioDni);
+    }
+
+    private CarritoResponse convertirAResponse(ItemCarritoEntity entity) {
+        var producto = entity.getProducto();
+        return CarritoResponse.builder()
+                .idItem(entity.getId())
+                .productoId(producto.getId())
+                .nombreProducto(producto.getNombre())
+                .imagenProducto(producto.getImagen())
+                .precioUnitario(producto.getPrecio())
+                .cantidad(entity.getCantidad())
+                .subtotal(producto.getPrecio() * entity.getCantidad())
+                .tiendaId(producto.getTienda().getId())
+                .nombreTienda(producto.getTienda().getNombreFantasia())
+                .build();
+    }
+}
+package back.ecommerce.services;
+
+import java.util.List;
+
+import back.ecommerce.dtos.CategoriasRequest;
+import back.ecommerce.dtos.CategoriasResponse;
+
+public interface CategoriasService {
+
+    // Crear una categoría asignada a una tienda específica
+    CategoriasResponse create(String nombreTienda, CategoriasRequest request);
+
+    // Leer todas las categorías de una tienda específica
+    List<CategoriasResponse> readAllByTienda(String nombreTienda);
+
+    // Métodos por ID (Siguen igual porque el ID es único)
+    CategoriasResponse readById(Long id);
+    CategoriasResponse update(Long id, CategoriasRequest request);
+    void delete(Long id);
+}
+package back.ecommerce.services;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional; // 👈 Importante
+
+import back.ecommerce.dtos.CategoriasRequest;
+import back.ecommerce.dtos.CategoriasResponse;
+import back.ecommerce.entities.CategoriasEntity;
+import back.ecommerce.repositories.CategoriasRepository;
+import back.ecommerce.repositories.TiendaRepository;
+import lombok.AllArgsConstructor;
+
+@Service
+@Transactional
+@AllArgsConstructor
+public class CategoriasServiceImpl implements CategoriasService {
+
+    private final CategoriasRepository categoriasRepository;
+    private final TiendaRepository tiendaRepository; // 👈 Inyección del repo de tiendas
+
+    @Override
+    public CategoriasResponse create(String nombreTienda, CategoriasRequest request) {
+        // 1. Buscamos la TIENDA por su slug (URL)
+        var tienda = tiendaRepository.findByNombreUrl(nombreTienda)
+                .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreTienda));
+
+        // 2. Creamos la entidad Categoría
+        var entity = new CategoriasEntity();
+        entity.setNombre(request.getNombre());
+        
+        // 3. La vinculamos a la tienda
+        entity.setTienda(tienda);
+
+        // 4. Guardamos
+        var categoriaGuardada = categoriasRepository.save(entity);
+        
+        return convertirEntidadAResponse(categoriaGuardada);
+    }
+
+    @Override
+    public List<CategoriasResponse> readAllByTienda(String nombreTienda) {
+        // Usamos el método del repositorio que filtra por tienda
+        return categoriasRepository.findByTiendaNombreUrl(nombreTienda).stream()
+                .map(this::convertirEntidadAResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public CategoriasResponse readById(Long id) {
+        var entity = categoriasRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + id));
+        return convertirEntidadAResponse(entity);
+    }
+
+    @Override
+    public CategoriasResponse update(Long id, CategoriasRequest request) {
+        var entity = categoriasRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + id));
+
+        if (request.getNombre() != null && !request.getNombre().isBlank()) {
+            entity.setNombre(request.getNombre());
+        }
+
+        var categoriaActualizada = categoriasRepository.save(entity);
+        return convertirEntidadAResponse(categoriaActualizada);
+    }
+
+    @Override
+    public void delete(Long id) {
+        var entity = categoriasRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + id));
+        categoriasRepository.delete(entity);
+    }
+
+    // --- Helper para convertir Entidad a DTO ---
+    private CategoriasResponse convertirEntidadAResponse(CategoriasEntity entity) {
+        var response = new CategoriasResponse();
+        BeanUtils.copyProperties(entity, response);
+        return response;
+    }
+}
+package back.ecommerce.services;
+
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+@Service
+public class CloudinaryService {
+
+    @Value("${cloudinary.cloud_name}")
+    private String cloudName;
+
+    @Value("${cloudinary.api_key}")
+    private String apiKey;
+
+    @Value("${cloudinary.api_secret}")
+    private String apiSecret;
+
+    public String uploadFile(MultipartFile file) {
+        try {
+            File uploadedFile = convertMultiPartToFile(file);
+            
+            // Configuración para la versión 2.0.0
+            Map<String, String> config = new HashMap<>();
+            config.put("cloud_name", cloudName);
+            config.put("api_key", apiKey);
+            config.put("api_secret", apiSecret);
+
+            Cloudinary cloudinary = new Cloudinary(config);
+
+            // Subida de imagen
+            Map uploadResult = cloudinary.uploader().upload(uploadedFile, ObjectUtils.emptyMap());
+            
+            // Borramos el archivo temporal del servidor para no llenar disco
+            uploadedFile.delete();
+
+            // Retornamos la URL pública (HTTPS)
+            return uploadResult.get("secure_url").toString();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error al subir la imagen a Cloudinary", e);
+        }
+    }
+
+    private File convertMultiPartToFile(MultipartFile file) throws IOException {
+        File convFile = new File(file.getOriginalFilename());
+        FileOutputStream fos = new FileOutputStream(convFile);
+        fos.write(file.getBytes());
+        fos.close();
+        return convFile;
+    }
+}
+package back.ecommerce.services;
+
+import java.util.List;
+
+import back.ecommerce.dtos.DireccionRequest;
+import back.ecommerce.dtos.DireccionResponse;
+
+public interface DireccionService {
+    DireccionResponse create(DireccionRequest request);
+    List<DireccionResponse> readAllByUsuario(Long dni);
+    DireccionResponse readById(Long id);
+    void delete(Long id);
+}
+package back.ecommerce.services;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import back.ecommerce.dtos.DireccionRequest;
+import back.ecommerce.dtos.DireccionResponse;
+import back.ecommerce.entities.DireccionEntity;
+import back.ecommerce.entities.UsuariosEntity;
+import back.ecommerce.repositories.DireccionRepository;
+import back.ecommerce.repositories.UsuariosRepository;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class DireccionServiceImpl implements DireccionService {
+
+    private final DireccionRepository direccionRepository;
+    private final UsuariosRepository usuariosRepository;
+
+    @Override
+    public DireccionResponse create(DireccionRequest request) {
+        UsuariosEntity usuario = usuariosRepository.findById(request.getUsuarioDni())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + request.getUsuarioDni()));
+
+        DireccionEntity entity = new DireccionEntity();
+        entity.setCalle(request.getCalle());
+        entity.setNumero(request.getNumero());
+        entity.setPiso(request.getPiso());
+        entity.setDepartamento(request.getDepartamento());
+        entity.setLocalidad(request.getLocalidad());
+        entity.setProvincia(request.getProvincia());
+        entity.setCodigoPostal(request.getCodigoPostal());
+        entity.setUsuario(usuario);
+
+        DireccionEntity guardada = direccionRepository.save(entity);
+        return convertirAResponse(guardada);
+    }
+
+    @Override
+    public List<DireccionResponse> readAllByUsuario(Long dni) {
+        return direccionRepository.findByUsuarioDni(dni).stream()
+                .map(this::convertirAResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public DireccionResponse readById(Long id) {
+        DireccionEntity entity = direccionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Dirección no encontrada con ID: " + id));
+        return convertirAResponse(entity);
+    }
+
+    @Override
+    public void delete(Long id) {
+        if (!direccionRepository.existsById(id)) {
+            throw new IllegalArgumentException("Dirección no encontrada con ID: " + id);
+        }
+        direccionRepository.deleteById(id);
+    }
+
+    private DireccionResponse convertirAResponse(DireccionEntity entity) {
+        return DireccionResponse.builder()
+                .id(entity.getId())
+                .calle(entity.getCalle())
+                .numero(entity.getNumero())
+                .piso(entity.getPiso())
+                .departamento(entity.getDepartamento())
+                .localidad(entity.getLocalidad())
+                .provincia(entity.getProvincia())
+                .codigoPostal(entity.getCodigoPostal())
+                .usuarioDni(entity.getUsuario().getDni())
+                .build();
+    }
+}
+package back.ecommerce.services;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+
+import com.resend.Resend;
+import com.resend.services.emails.model.CreateEmailOptions;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Service
+@Slf4j
+public class EmailService {
+
+    @Value("${resend.api.key}")
+    private String resendApiKey;
+
+    // Si ya verificaste tu dominio, ponlo acá. Si no, usa "onboarding@resend.dev"
+    private final String REMITENTE = "Ecommerce <info@nicolasgigena.com.ar>"; 
+
+    @Async
+    public void enviarCorreo(String to, String subject, String body) {
+        try {
+            Resend resend = new Resend(resendApiKey);
+
+            CreateEmailOptions params = CreateEmailOptions.builder()
+                    .from(REMITENTE)
+                    .to(to)
+                    .subject(subject)
+                    .html(body.replace("\n", "<br>")) 
+                    .build();
+
+            resend.emails().send(params);
+            log.info("✅ Email enviado a: {}", to);
+
+        } catch (Exception e) {
+            log.error("❌ Error enviando email: {}", e.getMessage());
+        }
+    }
+}
+package back.ecommerce.services;
+
+import java.util.List;
+
+import back.ecommerce.dtos.FavoritoRequest;
+import back.ecommerce.dtos.FavoritoResponse;
+
+public interface FavoritoService {
+    
+    String toggleFavorito(String nombreTienda, FavoritoRequest request);
+
+    List<FavoritoResponse> obtenerFavoritos(String nombreTienda, Long usuarioDni);
+}
+package back.ecommerce.services;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import back.ecommerce.dtos.FavoritoRequest;
+import back.ecommerce.dtos.FavoritoResponse;
+import back.ecommerce.entities.FavoritoEntity;
+import back.ecommerce.repositories.FavoritoRepository;
+import back.ecommerce.repositories.ProductosRepository;
+import back.ecommerce.repositories.UsuariosRepository;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@Transactional
+@RequiredArgsConstructor
+public class FavoritoServiceImpl implements FavoritoService {
+
+    private final FavoritoRepository favoritoRepository;
+    private final UsuariosRepository usuariosRepository;
+    private final ProductosRepository productosRepository;
+
+    @Override
+    public String toggleFavorito(String nombreTienda, FavoritoRequest request) {
+        
+        // 1. Buscar el producto
+        var producto = productosRepository.findById(request.getProductoId())
+                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con ID: " + request.getProductoId()));
+
+        // 2. 🛡️ VALIDACIÓN DE SEGURIDAD: Coherencia de Tienda
+        // Si intentan likear un producto de 'Adidas' estando en la tienda 'Nike', explota.
+        if (!producto.getTienda().getNombreUrl().equals(nombreTienda)) {
+            throw new IllegalArgumentException("Error de Seguridad: El producto '" + producto.getNombre() + 
+                                               "' pertenece a la tienda '" + producto.getTienda().getNombreUrl() + 
+                                               "' y no a '" + nombreTienda + "'.");
+        }
+
+        // 3. Si ya existe, lo borramos (Dislike)
+        if (favoritoRepository.existsByUsuarioDniAndProductoId(request.getUsuarioDni(), request.getProductoId())) {
+            favoritoRepository.deleteByUsuarioDniAndProductoId(request.getUsuarioDni(), request.getProductoId());
+            return "Producto eliminado de favoritos";
+        }
+
+        // 4. Si no existe, lo creamos (Like)
+        var usuario = usuariosRepository.findById(request.getUsuarioDni())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + request.getUsuarioDni()));
+
+        var favorito = new FavoritoEntity();
+        favorito.setUsuario(usuario);
+        favorito.setProducto(producto);
+        
+        favoritoRepository.save(favorito);
+        return "Producto agregado a favoritos";
+    }
+
+    @Override
+    public List<FavoritoResponse> obtenerFavoritos(String nombreTienda, Long usuarioDni) {
+        
+        return favoritoRepository.findByUsuarioDniAndProducto_Tienda_NombreUrl(usuarioDni, nombreTienda)
+                .stream()
+                .map(fav -> FavoritoResponse.builder()
+                        .id(fav.getId())
+                        .productoId(fav.getProducto().getId())
+                        .nombreProducto(fav.getProducto().getNombre())
+                        .imagen(fav.getProducto().getImagen())
+                        .precio(fav.getProducto().getPrecio())
+                        .build())
+                .collect(Collectors.toList());
+    }
+}
+package back.ecommerce.services;
+
+import java.security.Key;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+
+import org.springframework.beans.factory.annotation.Value; // Importar Value
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+
+@Service
+public class JwtService {
+
+    // ✅ CAMBIO: Inyectamos la clave desde application.properties
+    @Value("${jwt.secret.key}")
+    private String secretKey;
+
+    public String generateToken(UserDetails userDetails) {
+        return generateToken(new HashMap<>(), userDetails);
+    }
+
+    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+        return Jwts.builder()
+                .setClaims(extraClaims)
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+    }
+
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSignInKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    private boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    private Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    private Key getSignInKey() {
+        // ✅ CAMBIO: Usamos la variable 'secretKey' inyectada en lugar de la constante
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+}
+package back.ecommerce.services;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.mercadopago.MercadoPagoConfig;
+import com.mercadopago.client.payment.PaymentClient;
+import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
+import com.mercadopago.client.preference.PreferenceClient;
+import com.mercadopago.client.preference.PreferenceItemRequest;
+import com.mercadopago.client.preference.PreferenceRequest;
+import com.mercadopago.exceptions.MPApiException;
+import com.mercadopago.resources.payment.Payment;
+import com.mercadopago.resources.preference.Preference;
+
+import back.ecommerce.entities.PedidosEntity;
+import back.ecommerce.repositories.PedidosRepository;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class MercadoPagoService {
+
+    @Value("${mp.access.token}")
+    private String accessToken;
+
+    @Value("${app.backend.url}")
+    private String backendUrl;
+    
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
+
+    private final PedidosRepository pedidosRepository;
+    private final EmailService emailService; 
+
+    public String crearPreferencia(PedidosEntity pedido) {
+        MercadoPagoConfig.setAccessToken(accessToken);
+
+        List<PreferenceItemRequest> items = new ArrayList<>();
+        
+        // 1. Agregamos los PRODUCTOS reales
+        pedido.getItemsPedido().forEach(item -> {
+            PreferenceItemRequest itemRequest = PreferenceItemRequest.builder()
+                    .title(item.getProducto().getNombre())
+                    .quantity(item.getCantidad())
+                    .unitPrice(BigDecimal.valueOf(item.getPrecioUnitario()))
+                    .currencyId("ARS")
+                    .build();
+            items.add(itemRequest);
+        });
+
+        // 2. ✅ Agregamos el ENVÍO como un item más si existe
+        if (pedido.getCostoEnvio() != null && pedido.getCostoEnvio() > 0) {
+            PreferenceItemRequest itemEnvio = PreferenceItemRequest.builder()
+                    .title("Costo de Envío")
+                    .quantity(1)
+                    .unitPrice(BigDecimal.valueOf(pedido.getCostoEnvio()))
+                    .currencyId("ARS")
+                    .build();
+            items.add(itemEnvio);
+        }
+
+        PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
+                .success(frontendUrl + "/compra-exitosa")
+                .failure(frontendUrl + "/compra-fallida")
+                .pending(frontendUrl + "/compra-pendiente")
+                .build();
+
+        PreferenceRequest preferenceRequest = PreferenceRequest.builder()
+                .items(items)
+                .backUrls(backUrls)
+                .autoReturn("approved")
+                .externalReference(String.valueOf(pedido.getId()))
+                .notificationUrl(backendUrl + "/api/pagos/webhook")
+                .build();
+
+        try {
+            PreferenceClient client = new PreferenceClient();
+            Preference preference = client.create(preferenceRequest);
+            return preference.getInitPoint();
+        } catch (MPApiException e) {
+            System.err.println("❌ ERROR MP: " + e.getApiResponse().getContent());
+            throw new RuntimeException("Error de MP", e);
+        } catch (Exception e) {
+            throw new RuntimeException("Error general", e);
+        }
+    }
+    
+    public void procesarNotificacion(Long paymentId) {
+        try {
+            MercadoPagoConfig.setAccessToken(accessToken);
+            PaymentClient client = new PaymentClient();
+            Payment payment = client.get(paymentId);
+
+            if ("approved".equals(payment.getStatus())) {
+                String externalReference = payment.getExternalReference();
+                Long pedidoId = Long.parseLong(externalReference);
+
+                PedidosEntity pedido = pedidosRepository.findById(pedidoId)
+                        .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
+
+                // Verificamos si YA estaba pagado para no enviar spam ni procesar doble
+                if (!"PAGADO".equals(pedido.getEstado())) {
+                    
+                    // A. Actualizamos estado
+                    pedido.setEstado("PAGADO");
+                    pedidosRepository.save(pedido);
+                    System.out.println("✅ Pedido #" + pedidoId + " marcado como PAGADO.");
+
+                    // B. Enviamos el Correo con el desglose calculado
+                    if (pedido.getUsuario() != null && pedido.getUsuario().getEmail() != null) {
+                        String emailUsuario = pedido.getUsuario().getEmail();
+                        String asunto = "¡Pago Confirmado! Pedido #" + pedido.getId();
+                        
+                        // --- CÁLCULOS PARA MOSTRAR BIEN LOS NÚMEROS ---
+                        BigDecimal total = BigDecimal.valueOf(pedido.getTotal());
+                        BigDecimal envio = BigDecimal.valueOf(pedido.getCostoEnvio() != null ? pedido.getCostoEnvio() : 0.0);
+                        BigDecimal subtotal = total.subtract(envio); // Restamos envío al total para sacar el subtotal puro
+
+                        // --- ARMADO DEL MENSAJE ---
+                        String mensaje = "Hola " + pedido.getUsuario().getNombre() + ",\n\n" +
+                                "Tu pago ha sido procesado exitosamente.\n" +
+                                "--------------------------------------\n" +
+                                "Subtotal Productos: $" + subtotal + "\n" +
+                                "Costo de Envío:     $" + envio + "\n" +
+                                "--------------------------------------\n" +
+                                "TOTAL ABONADO:      $" + total + "\n" +
+                                "--------------------------------------\n\n" +
+                                "Tienda: " + (pedido.getTienda() != null ? pedido.getTienda().getNombreFantasia() : "E-commerce") + "\n" +
+                                "¡Gracias por tu compra!";
+
+                        emailService.enviarCorreo(emailUsuario, asunto, mensaje);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error procesando notificación: " + e.getMessage());
+        }
+    } 
+}
+package back.ecommerce.services;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import back.ecommerce.entities.ItemsPedidosEntity;
+import back.ecommerce.entities.PedidosEntity;
+import back.ecommerce.repositories.PedidosRepository;
+import back.ecommerce.repositories.ProductosRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class OrderCleanupService {
+
+    private final PedidosRepository pedidosRepository;
+    private final ProductosRepository productosRepository;
+
+    @Scheduled(fixedRate = 60000)
+    @Transactional
+    public void cancelarPedidosExpirados() {
+        log.info("🧹 [CRON JOB] Iniciando limpieza de pedidos expirados...");
+
+        // 1. Definimos qué es "Viejo": Pedidos creados hace más de 10 minutos
+        LocalDateTime tiempoLimite = LocalDateTime.now().minusMinutes(10);
+
+        // 2. Buscamos en la BD: Estado "PENDIENTE" y Fecha < tiempoLimite
+        List<PedidosEntity> pedidosViejos = pedidosRepository.findByEstadoAndFechaPedidoBefore("PENDIENTE", tiempoLimite);
+
+        if (pedidosViejos.isEmpty()) {
+            log.info("✅ [CRON JOB] No se encontraron pedidos pendientes para cancelar.");
+            return;
+        }
+
+        log.info("⚠️ [CRON JOB] Se encontraron {} pedidos expirados. Procesando devoluciones...", pedidosViejos.size());
+
+        // 3. Procesamos cada pedido viejo
+        for (PedidosEntity pedido : pedidosViejos) {
+            try {
+                log.info("   🚫 Cancelando Pedido #{}...", pedido.getId());
+
+                // A. Devolver Stock de cada item al producto original
+                for (ItemsPedidosEntity item : pedido.getItemsPedido()) {
+                    var producto = item.getProducto();
+                    int cantidadARestaurar = item.getCantidad();
+                    
+                    // Sumamos la cantidad reservada de vuelta al stock disponible
+                    producto.setStock(producto.getStock() + cantidadARestaurar);
+                    productosRepository.save(producto);
+                    
+                    log.info("      -> Producto '{}': Stock restaurado +{}", producto.getNombre(), cantidadARestaurar);
+                }
+
+                // B. Marcar pedido como CANCELADO (para no procesarlo de nuevo)
+                pedido.setEstado("CANCELADO");
+                pedidosRepository.save(pedido);
+                
+            } catch (Exception e) {
+                log.error("❌ Error procesando limpieza del pedido #{}: {}", pedido.getId(), e.getMessage());
+            }
+        }
+        
+        log.info("🏁 [CRON JOB] Limpieza finalizada exitosamente.");
+    }
+}
+package back.ecommerce.services;
+
+import java.util.List;
+
+import back.ecommerce.dtos.PedidosRequest;
+import back.ecommerce.dtos.PedidosResponse;
+
+public interface PedidosService {
+
+    // Crear pedido EN una tienda específica
+    PedidosResponse create(String nombreTienda, PedidosRequest request);
+
+    // Ver pedidos DE una tienda (para el vendedor)
+    List<PedidosResponse> readAllByTienda(String nombreTienda);
+
+    // Ver pedidos de un USUARIO en una tienda específica
+    List<PedidosResponse> findByUsuarioDni(String nombreTienda, Long dni);
+
+    // Métodos por ID (igual que siempre)
+    PedidosResponse readById(Long id);
+    PedidosResponse update(Long id, PedidosRequest request);
+    void delete(Long id);
+}
+package back.ecommerce.services;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import back.ecommerce.dtos.ItemsPedidosRequest;
+import back.ecommerce.dtos.ItemsPedidosResponse; // Asegurate de tener este import
+import back.ecommerce.dtos.PedidosRequest;
+import back.ecommerce.dtos.PedidosResponse;
+import back.ecommerce.entities.ItemsPedidosEntity;
+import back.ecommerce.entities.PedidosEntity;
+import back.ecommerce.repositories.CarritoRepository; // ✅ NUEVO
+import back.ecommerce.repositories.PedidosRepository;
+import back.ecommerce.repositories.ProductosRepository;
+import back.ecommerce.repositories.TiendaRepository;
+import back.ecommerce.repositories.UsuariosRepository;
+import lombok.AllArgsConstructor;
+
+@Service
+@Transactional
+@AllArgsConstructor
+public class PedidosServiceImpl implements PedidosService {
+
+    private final PedidosRepository pedidosRepository;
+    private final UsuariosRepository usuariosRepository;
+    private final ProductosRepository productosRepository;
+    private final TiendaRepository tiendaRepository;
+    private final CarritoRepository carritoRepository; // ✅ INYECTADO
+
+    @Override
+    public PedidosResponse create(String nombreTienda, PedidosRequest pedidoRequest) {
+        
+        // 1. Buscamos la TIENDA
+        var tienda = tiendaRepository.findByNombreUrl(nombreTienda)
+                .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreTienda));
+
+        // 2. Buscamos el Usuario
+        var usuario = usuariosRepository.findById(pedidoRequest.getUsuarioDni())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + pedidoRequest.getUsuarioDni()));
+
+        // --- LÓGICA DE ORIGEN DE ITEMS (Carrito vs Directo) ---
+        List<ItemsPedidosRequest> itemsParaProcesar = new ArrayList<>();
+        boolean vieneDelCarrito = false;
+
+        // Si el request NO trae items, asumimos que es una compra desde el CARRITO
+        if (pedidoRequest.getItems() == null || pedidoRequest.getItems().isEmpty()) {
+            var itemsCarrito = carritoRepository.findByUsuarioDni(usuario.getDni());
+            
+            if (itemsCarrito.isEmpty()) {
+                throw new IllegalArgumentException("El carrito está vacío y no se enviaron items manuales.");
+            }
+
+            // Convertimos ItemCarrito -> ItemPedidosRequest (DTO interno para procesar igual)
+            itemsParaProcesar = itemsCarrito.stream().map(itemCart -> {
+                return ItemsPedidosRequest.builder()
+                        .productoId(itemCart.getProducto().getId())
+                        .cantidad(itemCart.getCantidad())
+                        .build();
+            }).collect(Collectors.toList());
+            
+            vieneDelCarrito = true;
+        } else {
+            // Si trae items, es una compra directa ("Comprar Ahora")
+            // Convertimos la lista que viene del Request al tipo que necesitamos procesar
+            itemsParaProcesar = pedidoRequest.getItems().stream().map(item -> {
+                return ItemsPedidosRequest.builder()
+                        .productoId(item.getIdProducto()) // Ojo: ItemsPedidosResponse usa 'idProducto'
+                        .cantidad(item.getCantidad())
+                        .build();
+            }).collect(Collectors.toList());
+        }
+        // -------------------------------------------------------
+
+        // 3. Armamos el Pedido base
+        var pedidoEntity = new PedidosEntity();
+        pedidoEntity.setUsuario(usuario);
+        pedidoEntity.setTienda(tienda);
+        pedidoEntity.setFechaPedido(LocalDateTime.now());
+        pedidoEntity.setEstado("PENDIENTE");
+        pedidoEntity.setItemsPedido(new ArrayList<>());
+        
+        // Seteamos datos de envío
+        pedidoEntity.setMetodoEnvio(pedidoRequest.getMetodoEnvio());
+        // Lógica inteligente de dirección (si viene vacía, usar la del usuario)
+        if (pedidoRequest.getDireccionEnvio() == null || pedidoRequest.getDireccionEnvio().isBlank()) {
+             
+             // Verificamos si tiene direcciones guardadas en su perfil
+             if (usuario.getDirecciones() != null && !usuario.getDirecciones().isEmpty()) {
+                 // Agarramos la primera dirección de la lista (o podrías buscar la "principal")
+                 var dir = usuario.getDirecciones().get(0); 
+                 
+                 // La convertimos a String para guardarla en el pedido (Snapshot)
+                 String direccionTexto = dir.getCalle() + " " + dir.getNumero() + ", " + 
+                                         dir.getLocalidad() + " (" + dir.getProvincia() + ")";
+                 
+                 pedidoEntity.setDireccionEnvio(direccionTexto);
+             } else {
+                 // Si no mandó nada y no tiene perfil, explotamos
+                 throw new IllegalArgumentException("Debes ingresar una dirección de envío o cargar una en tu perfil.");
+             }
+        } else {
+             // Si mandó una dirección específica en el request, usamos esa
+             pedidoEntity.setDireccionEnvio(pedidoRequest.getDireccionEnvio());
+        }
+        
+        pedidoEntity.setCostoEnvio(pedidoRequest.getCostoEnvio() != null ? pedidoRequest.getCostoEnvio() : 0.0);
+
+        BigDecimal totalCalculado = BigDecimal.ZERO;
+
+        // 4. Procesamos Items (Reutilizamos la lógica de validación y stock)
+        for (var itemReq : itemsParaProcesar) {
+            // Nota: Si usaste "idProducto" en el DTO, cambia getProductoId() por getIdProducto() según corresponda
+            var producto = productosRepository.findById(itemReq.getProductoId()) 
+                    .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + itemReq.getProductoId()));
+
+            // ✅ VALIDACIÓN A: Coherencia de Tienda
+            if (!producto.getTienda().getId().equals(tienda.getId())) {
+                throw new IllegalArgumentException("El producto '" + producto.getNombre() + "' no pertenece a la tienda '" + nombreTienda + "'");
+            }
+
+            // ✅ VALIDACIÓN B: Control de Stock
+            if (producto.getStock() < itemReq.getCantidad()) {
+                throw new IllegalArgumentException("Stock insuficiente para: " + producto.getNombre() + ". Disponible: " + producto.getStock());
+            }
+
+            // ✅ ACCIÓN: Descontar Stock
+            producto.setStock(producto.getStock() - itemReq.getCantidad());
+            productosRepository.save(producto);
+
+            // Crear el Item del Pedido
+            var itemEntity = new ItemsPedidosEntity();
+            itemEntity.setCantidad(itemReq.getCantidad());
+            itemEntity.setProducto(producto);
+            itemEntity.setPrecioUnitario(producto.getPrecio());
+            itemEntity.setPedido(pedidoEntity);
+            
+            pedidoEntity.getItemsPedido().add(itemEntity);
+
+            // Calcular total
+            BigDecimal cantidad = new BigDecimal(itemReq.getCantidad());
+            BigDecimal subtotal = BigDecimal.valueOf(producto.getPrecio()).multiply(cantidad);
+            totalCalculado = totalCalculado.add(subtotal);
+        }
+
+        // Sumar envío
+        if (pedidoEntity.getCostoEnvio() != null && pedidoEntity.getCostoEnvio() > 0) {
+            totalCalculado = totalCalculado.add(BigDecimal.valueOf(pedidoEntity.getCostoEnvio()));
+        }
+
+        pedidoEntity.setTotal(totalCalculado.doubleValue());
+        var pedidoGuardado = pedidosRepository.save(pedidoEntity);
+
+        // ✅ PASO FINAL: Si vino del carrito, lo vaciamos
+        if (vieneDelCarrito) {
+            carritoRepository.deleteByUsuarioDni(usuario.getDni());
+        }
+
+        return convertirEntidadAResponse(pedidoGuardado);
+    }
+
+    // ... (El resto de los métodos readAll, readById, update, delete y el helper siguen IGUAL) ...
+    
+    @Override
+    public List<PedidosResponse> readAllByTienda(String nombreTienda) {
+        return pedidosRepository.findByTiendaNombreUrl(nombreTienda).stream()
+                .map(this::convertirEntidadAResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PedidosResponse> findByUsuarioDni(String nombreTienda, Long dni) {
+        return pedidosRepository.findByTiendaNombreUrlAndUsuarioDni(nombreTienda, dni).stream()
+                .map(this::convertirEntidadAResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public PedidosResponse readById(Long id) {
+        var entity = pedidosRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado: " + id));
+        return convertirEntidadAResponse(entity);
+    }
+
+    @Override
+    public PedidosResponse update(Long id, PedidosRequest pedidoRequest) {
+        var entityFromDB = pedidosRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado: " + id));
+
+        if (pedidoRequest.getEstado() != null && !pedidoRequest.getEstado().isBlank()) {
+            entityFromDB.setEstado(pedidoRequest.getEstado());
+        }
+
+        return convertirEntidadAResponse(pedidosRepository.save(entityFromDB));
+    }
+
+    @Override
+    public void delete(Long id) {
+        var entity = pedidosRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado: " + id));
+        pedidosRepository.delete(entity);
+    }
+
+    private PedidosResponse convertirEntidadAResponse(PedidosEntity entidad) {
+        var response = new PedidosResponse();
+        BeanUtils.copyProperties(entidad, response);
+        
+        if (entidad.getUsuario() != null) {
+            response.setUsuarioDni(entidad.getUsuario().getDni());
+        }
+
+        if (entidad.getItemsPedido() != null) {
+            List<ItemsPedidosResponse> itemsDto = entidad.getItemsPedido().stream().map(item -> {
+                ItemsPedidosResponse dto = new ItemsPedidosResponse();
+                dto.setCantidad(item.getCantidad());
+                dto.setPrecioUnitario(item.getPrecioUnitario());
+                if (item.getProducto() != null) {
+                    dto.setIdProducto(item.getProducto().getId());
+                    dto.setNombreProducto(item.getProducto().getNombre());
+                    dto.setDescripcionProducto(item.getProducto().getDescripcion());
+                }
+                return dto;
+            }).collect(Collectors.toList());
+            response.setItems(itemsDto);
+        } else {
+            response.setItems(Collections.emptyList());
+        }
+        return response;
+    }
+}
+package back.ecommerce.services;
+
+import java.util.List;
+
+import org.springframework.web.multipart.MultipartFile;
+
+import back.ecommerce.dtos.ProductosRequest;
+import back.ecommerce.dtos.ProductosResponse;
+
+public interface ProductosService {
+    
+    // Crear asignando a una tienda
+    ProductosResponse create(String nombreTienda, ProductosRequest producto);
+
+    // Leer solo los de esa tienda
+    List<ProductosResponse> readAllByTienda(String nombreTienda);
+
+    // Búsquedas filtradas por tienda
+    List<ProductosResponse> buscarPorNombre(String nombreTienda, String termino);
+    List<ProductosResponse> buscarPorCategoria(String nombreTienda, Long categoriaId);
+
+    // Métodos por ID (Siguen igual porque el ID es único global)
+    ProductosResponse readById(Long id);
+    ProductosResponse update(Long id, ProductosRequest producto);
+    void delete(Long id);
+
+    ProductosResponse create(String nombreTienda, ProductosRequest producto, MultipartFile file);
+    
+}
+package back.ecommerce.services;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import back.ecommerce.dtos.ProductosRequest;
+import back.ecommerce.dtos.ProductosResponse;
+import back.ecommerce.entities.ProductosEntity;
+import back.ecommerce.repositories.CategoriasRepository;
+import back.ecommerce.repositories.ProductosRepository;
+import back.ecommerce.repositories.TiendaRepository;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Service
+@Transactional
+@Slf4j
+@AllArgsConstructor
+public class ProductosServiceImpl implements ProductosService {
+
+    private final ProductosRepository productosRepository;
+    private final CategoriasRepository categoriasRepository;
+    private final TiendaRepository tiendaRepository; 
+    private final CloudinaryService cloudinaryService;
+
+    @Override
+    public ProductosResponse create(String nombreTienda, ProductosRequest productoRequest) {
+        // 1. Buscamos la TIENDA
+        var tienda = tiendaRepository.findByNombreUrl(nombreTienda)
+                .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreTienda));
+
+        // 2. Buscamos la CATEGORÍA
+        var categoria = categoriasRepository.findById(productoRequest.getCategoriaId())
+            .orElseThrow(() -> new IllegalArgumentException("Categoria no encontrada con id: " + productoRequest.getCategoriaId()));
+
+        // 3. 🛡️ VALIDACIÓN DE SEGURIDAD (Cross-Store Check)
+        // Verificamos que la categoría pertenezca a ESTA tienda
+        if (!categoria.getTienda().getId().equals(tienda.getId())) {
+            throw new IllegalArgumentException("Error de Seguridad: La categoría '" + categoria.getNombre() + 
+                                               "' pertenece a otra tienda, no a '" + nombreTienda + "'.");
+        }
+
+        // 4. Creamos la entidad
+        var entity = new ProductosEntity();
+        BeanUtils.copyProperties(productoRequest, entity);
+        
+        // Asignaciones
+        entity.setCategoria(categoria);
+        entity.setTienda(tienda); 
+
+        // 5. Guardamos
+        var productoCreated = productosRepository.save(entity);
+
+        return convertirEntidadAResponse(productoCreated);
+    }
+
+    @Override
+    public List<ProductosResponse> readAllByTienda(String nombreTienda) {
+        return productosRepository.findByTiendaNombreUrl(nombreTienda)
+                .stream()
+                .map(this::convertirEntidadAResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductosResponse> buscarPorNombre(String nombreTienda, String termino) {
+        return productosRepository.findByTiendaNombreUrlAndNombreContainingIgnoreCase(nombreTienda, termino)
+                .stream()
+                .map(this::convertirEntidadAResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductosResponse> buscarPorCategoria(String nombreTienda, Long categoriaId) {
+        return productosRepository.findByTiendaNombreUrlAndCategoriaId(nombreTienda, categoriaId)
+                .stream()
+                .map(this::convertirEntidadAResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public ProductosResponse readById(Long id) {
+        final var entityResponse = this.productosRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + id));
+        return convertirEntidadAResponse(entityResponse);
+    }
+
+    @Override
+    public ProductosResponse update(Long id, ProductosRequest productoRequest) {
+        final var entityFromDB = this.productosRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + id));
+
+        if (productoRequest.getNombre() != null && !productoRequest.getNombre().isBlank()) {
+            entityFromDB.setNombre(productoRequest.getNombre());
+        }
+        if (productoRequest.getDescripcion() != null) {
+            entityFromDB.setDescripcion(productoRequest.getDescripcion());
+        }
+        if (productoRequest.getPrecio() != null) {
+            entityFromDB.setPrecio(productoRequest.getPrecio());
+        }
+        if (productoRequest.getStock() != null) {
+            entityFromDB.setStock(productoRequest.getStock());
+        }
+        
+        // Validación al actualizar categoría también
+        if (productoRequest.getCategoriaId() != null) {
+            var categoria = categoriasRepository.findById(productoRequest.getCategoriaId())
+                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + productoRequest.getCategoriaId()));
+            
+            // 🛡️ VALIDACIÓN DE SEGURIDAD EN UPDATE
+            // La nueva categoría debe ser de la MISMA tienda que el producto original
+            if (!categoria.getTienda().getId().equals(entityFromDB.getTienda().getId())) {
+                 throw new IllegalArgumentException("Error: No puedes mover este producto a una categoría de otra tienda.");
+            }
+
+            entityFromDB.setCategoria(categoria);
+        }
+        
+        var productoActualizado = this.productosRepository.save(entityFromDB);
+        return convertirEntidadAResponse(productoActualizado);
+    }
+
+    @Override
+    public void delete(Long id) {
+        var producto = this.productosRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + id));
+        
+        log.info("Eliminando producto: {}", producto.getNombre());
+        this.productosRepository.delete(producto);
+    }
+
+    // --- Helper ---
+    private ProductosResponse convertirEntidadAResponse(ProductosEntity entidad) {
+        var response = new ProductosResponse();
+        BeanUtils.copyProperties(entidad, response);
+
+        if (entidad.getCategoria() != null) {
+            response.setCategoriaId(entidad.getCategoria().getId());
+            response.setCategoriaNombre(entidad.getCategoria().getNombre());
+        }
+        
+        return response;
+    }
+
+    @Override
+    public ProductosResponse create(String nombreTienda, ProductosRequest productoRequest, MultipartFile file) {
+        
+        // 1. Validaciones previas (Tienda y Categoría)
+        var tienda = tiendaRepository.findByNombreUrl(nombreTienda)
+                .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreTienda));
+
+        var categoria = categoriasRepository.findById(productoRequest.getCategoriaId())
+            .orElseThrow(() -> new IllegalArgumentException("Categoria no encontrada con id: " + productoRequest.getCategoriaId()));
+
+        if (!categoria.getTienda().getId().equals(tienda.getId())) {
+            throw new IllegalArgumentException("Error de Seguridad: La categoría no pertenece a esta tienda.");
+        }
+
+        // 2. ☁️ SUBIDA A CLOUDINARY (Lógica nueva)
+        String urlImagen = null;
+        if (file != null && !file.isEmpty()) {
+            urlImagen = cloudinaryService.uploadFile(file);
+        } else {
+            // Opcional: Poner una imagen por defecto si no suben nada
+            urlImagen = "https://res.cloudinary.com/tu-cuenta/image/upload/default-product.png";
+        }
+
+        // 3. Crear Entidad
+        var entity = new ProductosEntity();
+        BeanUtils.copyProperties(productoRequest, entity);
+        
+        entity.setImagen(urlImagen); // 👈 Asignamos la URL que nos dio Cloudinary
+        entity.setCategoria(categoria);
+        entity.setTienda(tienda);
+
+        // 4. Guardar en BD
+        var productoCreated = productosRepository.save(entity);
+
+        return convertirEntidadAResponse(productoCreated);
+    }
+}
+package back.ecommerce.services;
+
+import back.ecommerce.dtos.TiendaRequest;
+import back.ecommerce.dtos.TiendaResponse;
+
+public interface TiendaService {
+    
+    TiendaResponse create(TiendaRequest request);
+    
+    TiendaResponse readByNombreUrl(String nombreUrl);
+    
+    // Podés agregar update y delete a futuro
+}
+package back.ecommerce.services;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value; // Importar Value
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import back.ecommerce.dtos.TiendaRequest;
+import back.ecommerce.dtos.TiendaResponse;
+import back.ecommerce.entities.TiendaEntity;
+import back.ecommerce.repositories.TiendaRepository;
+import back.ecommerce.repositories.UsuariosRepository;
+import lombok.RequiredArgsConstructor; // Cambiado a RequiredArgsConstructor para facilitar el uso de @Value
+
+@Service
+@Transactional
+@RequiredArgsConstructor // Usamos este en lugar de AllArgsConstructor para permitir campos no-finales con @Value si es necesario, o mantenemos la estructura
+public class TiendaServiceImpl implements TiendaService {
+
+    private final TiendaRepository tiendaRepository;
+    private final UsuariosRepository usuariosRepository;
+    private final EmailService emailService;
+
+    // ✅ CAMBIO: Inyección de la URL del frontend para los emails
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
+
+    @Override
+    public TiendaResponse create(TiendaRequest request) {
+        var vendedor = usuariosRepository.findById(request.getVendedorDni())
+                .orElseThrow(() -> new IllegalArgumentException("Vendedor no encontrado con DNI: " + request.getVendedorDni()));
+
+        if (!vendedor.isEmailVerificado()) {
+             throw new IllegalStateException("Debes verificar tu email antes de crear una tienda. Revisá tu correo para activarla.");
+        }
+
+        if (tiendaRepository.findByNombreUrl(request.getNombreUrl()).isPresent()) {
+            throw new IllegalArgumentException("La URL de tienda '" + request.getNombreUrl() + "' ya está en uso.");
+        }
+
+        var entity = new TiendaEntity();
+        BeanUtils.copyProperties(request, entity);
+        entity.setVendedor(vendedor);
+
+        var tiendaGuardada = tiendaRepository.save(entity);
+        
+        String asunto = "¡Tu tienda '" + tiendaGuardada.getNombreFantasia() + "' está lista!";
+        
+        // Usamos la variable inyectada en lugar de texto fijo
+        String mensaje = "Hola " + vendedor.getNombre() + ",\n\n" +
+                         "Felicitaciones, ya creamos tu espacio en nuestra plataforma.\n" +
+                         "Podés acceder a tu panel de administración y empezar a cargar productos.\n\n" +
+                         "Tu URL pública es: " + frontendUrl + "/tienda/" + tiendaGuardada.getNombreUrl() + "\n\n" +
+                         "Éxitos,\nEl equipo de Ecommerce.";
+
+        emailService.enviarCorreo(vendedor.getEmail(), asunto, mensaje);
+        
+        return convertirEntidadAResponse(tiendaGuardada);
+    }
+
+    @Override
+    public TiendaResponse readByNombreUrl(String nombreUrl) {
+        var entity = tiendaRepository.findByNombreUrl(nombreUrl)
+                .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreUrl));
+        
+        return convertirEntidadAResponse(entity);
+    }
+
+    private TiendaResponse convertirEntidadAResponse(TiendaEntity entity) {
+        return TiendaResponse.builder()
+                .id(entity.getId())
+                .nombreUrl(entity.getNombreUrl())
+                .nombreFantasia(entity.getNombreFantasia())
+                .logo(entity.getLogo())
+                .descripcion(entity.getDescripcion())
+                .vendedorDni(entity.getVendedor() != null ? entity.getVendedor().getDni() : null)
+                .vendedorNombre(entity.getVendedor() != null ? entity.getVendedor().getNombre() : null)
+                .build();
+    }
+}
+package back.ecommerce.services;
+
+import java.util.List;
+
+import back.ecommerce.dtos.UsuariosRequest;
+import back.ecommerce.dtos.UsuariosResponse;
+
+public interface UsuariosService {
+    
+    //Obtener todos
+    List<UsuariosResponse> readAll();
+
+    //Obtener por id
+    UsuariosResponse readByDni(Long dni);
+
+    //Actualizar
+    UsuariosResponse update(Long dni, UsuariosRequest usuario);
+    
+    //Eliminar
+    void delete(Long dni);
+
+}
+package back.ecommerce.services;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import back.ecommerce.dtos.UsuariosRequest;
+import back.ecommerce.dtos.UsuariosResponse;
+import back.ecommerce.entities.UsuariosEntity;
+import back.ecommerce.repositories.UsuariosRepository;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Service
+@Transactional
+@Slf4j
+@AllArgsConstructor
+public class UsuariosServiceImpl implements UsuariosService {
+
+    private final UsuariosRepository usuariosRepository;
+
+    @Override
+    public List<UsuariosResponse> readAll() {
+        return usuariosRepository.findAll().stream()
+                .map(this::convertirEntidadAResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public UsuariosResponse readByDni(Long dni) {
+        final var entityResponse = this.usuariosRepository.findById(dni)
+            .orElseThrow(() -> new IllegalArgumentException("No existe el usuario con id: " + dni));
+        
+        return convertirEntidadAResponse(entityResponse);
+    }
+
+    @Override
+    public UsuariosResponse update(Long dni, UsuariosRequest request) {
+        final var entidad = this.usuariosRepository.findById(dni)
+            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + dni));
+
+        if (request.getNombre() != null && !request.getNombre().isBlank()) {
+            entidad.setNombre(request.getNombre());
+        }
+        if (request.getApellido() != null && !request.getApellido().isBlank()) {
+            entidad.setApellido(request.getApellido());
+        }
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            entidad.setEmail(request.getEmail());
+        }
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            // encriptar la password antes de guardarla (por hacer)
+            entidad.setPassword(request.getPassword());
+        }
+
+        var usuarioActualizado = usuariosRepository.save(entidad);
+        return convertirEntidadAResponse(usuarioActualizado);
+    }
+
+    @Override
+    public void delete(Long dni) {
+        final var entidad = this.usuariosRepository.findById(dni)
+            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + dni));
+        
+        this.usuariosRepository.delete(entidad);
+    }
+
+    private UsuariosResponse convertirEntidadAResponse(UsuariosEntity entidad) {
+        return UsuariosResponse.builder()
+                .dni(entidad.getDni())
+                .nombre(entidad.getNombre())
+                .apellido(entidad.getApellido())
+                .email(entidad.getEmail())
+                .build();
+    }
+}

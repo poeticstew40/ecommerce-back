@@ -26,7 +26,6 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
 
-    // ✅ INYECCIÓN DE LA URL DEL BACKEND (Desde Render/Properties)
     @Value("${app.backend.url}")
     private String backendUrl;
 
@@ -59,7 +58,7 @@ public class AuthService {
                          "Gracias por registrarte. Para activar tu cuenta, hacé clic en el siguiente enlace:\n\n" +
                          link + "\n\n" +
                          "Si no solicitaste esto, ignorá este mensaje.";
-
+        
         emailService.enviarCorreo(user.getEmail(), "Verificá tu cuenta", mensaje);
 
         var jwtToken = jwtService.generateToken(user);
@@ -72,7 +71,6 @@ public class AuthService {
         );
         var user = usuariosRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario o contraseña incorrectos"));
-
         var jwtToken = jwtService.generateToken(user);
         return AuthResponse.builder().token(jwtToken).build();
     }
@@ -80,7 +78,7 @@ public class AuthService {
     public String verifyUser(String code) {
         UsuariosEntity user = usuariosRepository.findByVerificationCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("Código de verificación inválido o expirado"));
-
+        
         if (user.isEmailVerificado()) {
             return "Tu cuenta ya estaba verificada. Puedes iniciar sesión.";
         }
@@ -88,7 +86,6 @@ public class AuthService {
         user.setEmailVerificado(true);
         user.setVerificationCode(null);
         usuariosRepository.save(user);
-
         return "¡Cuenta verificada con éxito! Ya podés cerrar esta ventana e iniciar sesión.";
     }
 }

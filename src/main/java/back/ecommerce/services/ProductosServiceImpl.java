@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import back.ecommerce.dtos.ProductosRequest;
 import back.ecommerce.dtos.ProductosResponse;
@@ -25,33 +26,42 @@ public class ProductosServiceImpl implements ProductosService {
     private final ProductosRepository productosRepository;
     private final CategoriasRepository categoriasRepository;
     private final TiendaRepository tiendaRepository; 
+    private final CloudinaryService cloudinaryService;
 
     @Override
     public ProductosResponse create(String nombreTienda, ProductosRequest productoRequest) {
-        // 1. Buscamos la TIENDA
+        // Método create sin archivo (sobrecarga opcional)
+        return create(nombreTienda, productoRequest, null);
+    }
+
+    @Override
+    public ProductosResponse create(String nombreTienda, ProductosRequest productoRequest, MultipartFile file) {
+        
         var tienda = tiendaRepository.findByNombreUrl(nombreTienda)
                 .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreTienda));
 
-        // 2. Buscamos la CATEGORÍA
         var categoria = categoriasRepository.findById(productoRequest.getCategoriaId())
             .orElseThrow(() -> new IllegalArgumentException("Categoria no encontrada con id: " + productoRequest.getCategoriaId()));
 
-        // 3. 🛡️ VALIDACIÓN DE SEGURIDAD (Cross-Store Check)
-        // Verificamos que la categoría pertenezca a ESTA tienda
         if (!categoria.getTienda().getId().equals(tienda.getId())) {
-            throw new IllegalArgumentException("Error de Seguridad: La categoría '" + categoria.getNombre() + 
-                                               "' pertenece a otra tienda, no a '" + nombreTienda + "'.");
+            throw new IllegalArgumentException("Error de Seguridad: La categoría no pertenece a esta tienda.");
         }
 
-        // 4. Creamos la entidad
+        String urlImagen = null;
+        if (file != null && !file.isEmpty()) {
+            urlImagen = cloudinaryService.uploadFile(file);
+        } else {
+            // Imagen por defecto si es necesario
+            urlImagen = "https://res.cloudinary.com/dacnqinsu/image/upload/v1/default-product.png";
+        }
+
         var entity = new ProductosEntity();
         BeanUtils.copyProperties(productoRequest, entity);
         
-        // Asignaciones
+        entity.setImagen(urlImagen);
         entity.setCategoria(categoria);
-        entity.setTienda(tienda); 
+        entity.setTienda(tienda);
 
-        // 5. Guardamos
         var productoCreated = productosRepository.save(entity);
 
         return convertirEntidadAResponse(productoCreated);
@@ -105,21 +115,14 @@ public class ProductosServiceImpl implements ProductosService {
         if (productoRequest.getStock() != null) {
             entityFromDB.setStock(productoRequest.getStock());
         }
-        if (productoRequest.getImagen() != null) {
-            entityFromDB.setImagen(productoRequest.getImagen());
-        }
         
-        // Validación al actualizar categoría también
         if (productoRequest.getCategoriaId() != null) {
             var categoria = categoriasRepository.findById(productoRequest.getCategoriaId())
                 .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + productoRequest.getCategoriaId()));
-            
-            // 🛡️ VALIDACIÓN DE SEGURIDAD EN UPDATE
-            // La nueva categoría debe ser de la MISMA tienda que el producto original
+
             if (!categoria.getTienda().getId().equals(entityFromDB.getTienda().getId())) {
                  throw new IllegalArgumentException("Error: No puedes mover este producto a una categoría de otra tienda.");
             }
-
             entityFromDB.setCategoria(categoria);
         }
         
@@ -131,12 +134,10 @@ public class ProductosServiceImpl implements ProductosService {
     public void delete(Long id) {
         var producto = this.productosRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + id));
-        
         log.info("Eliminando producto: {}", producto.getNombre());
         this.productosRepository.delete(producto);
     }
 
-    // --- Helper ---
     private ProductosResponse convertirEntidadAResponse(ProductosEntity entidad) {
         var response = new ProductosResponse();
         BeanUtils.copyProperties(entidad, response);

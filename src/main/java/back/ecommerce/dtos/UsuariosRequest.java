@@ -19,7 +19,7 @@ public class UsuariosRequest {
     private Long dni;
 
     @NotBlank(message = "El email es obligatorio")
-    @Email(message = "El formato del email es inválido (ejemplo@correo.com)")
+    @Email(message = "El formato del email es inválido")
     private String email;
 
     @NotBlank(message = "La contraseña es obligatoria")

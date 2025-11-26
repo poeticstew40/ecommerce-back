@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TiendaResponse {
-
     private Long id;
     private String nombreUrl;
     private String nombreFantasia;
@@ -18,5 +17,4 @@ public class TiendaResponse {
     private String descripcion;
     private Long vendedorDni;
     private String vendedorNombre;
-    
 }

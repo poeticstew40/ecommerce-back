@@ -17,10 +17,8 @@ import io.swagger.v3.oas.annotations.Hidden;
 public class ErrorHandlerController {
 
     @ExceptionHandler(IllegalArgumentException.class)
-    private ResponseEntity<Map<String, Object>>
-        IllegalArgumentHandler(IllegalArgumentException ex) {
+    private ResponseEntity<Map<String, Object>> IllegalArgumentHandler(IllegalArgumentException ex) {
        final var response = new HashMap<String, Object>();
-       
         response.put("code", HttpStatus.BAD_REQUEST.value());
         response.put("status", HttpStatus.BAD_REQUEST.getReasonPhrase());
         response.put("message", ex.getMessage());
@@ -28,14 +26,12 @@ public class ErrorHandlerController {
         return ResponseEntity.badRequest().body(response);
     }
 
-    // ✅ NUEVO: Handler para validaciones (@Valid)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationErrors(MethodArgumentNotValidException ex) {
         Map<String, Object> response = new HashMap<>();
         response.put("code", HttpStatus.BAD_REQUEST.value());
         response.put("status", "Error de Validación");
         
-        // Extrae cada campo que falló y su mensaje
         Map<String, String> errores = new HashMap<>();
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
             errores.put(error.getField(), error.getDefaultMessage());
@@ -45,4 +41,3 @@ public class ErrorHandlerController {
         return ResponseEntity.badRequest().body(response);
     }
 }
-    

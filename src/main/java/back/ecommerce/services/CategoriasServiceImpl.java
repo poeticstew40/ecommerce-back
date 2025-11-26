@@ -5,7 +5,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional; // 👈 Importante
+import org.springframework.transaction.annotation.Transactional;
 
 import back.ecommerce.dtos.CategoriasRequest;
 import back.ecommerce.dtos.CategoriasResponse;
@@ -20,30 +20,31 @@ import lombok.AllArgsConstructor;
 public class CategoriasServiceImpl implements CategoriasService {
 
     private final CategoriasRepository categoriasRepository;
-    private final TiendaRepository tiendaRepository; // 👈 Inyección del repo de tiendas
+    private final TiendaRepository tiendaRepository;
 
     @Override
     public CategoriasResponse create(String nombreTienda, CategoriasRequest request) {
-        // 1. Buscamos la TIENDA por su slug (URL)
         var tienda = tiendaRepository.findByNombreUrl(nombreTienda)
                 .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreTienda));
+        
+        // Validación de duplicados
+        boolean existe = categoriasRepository.findByTiendaNombreUrl(nombreTienda).stream()
+                .anyMatch(cat -> cat.getNombre().equalsIgnoreCase(request.getNombre()));
+        
+        if (existe) {
+            throw new IllegalArgumentException("Ya existe una categoría con el nombre '" + request.getNombre() + "' en esta tienda.");
+        }
 
-        // 2. Creamos la entidad Categoría
         var entity = new CategoriasEntity();
         entity.setNombre(request.getNombre());
-        
-        // 3. La vinculamos a la tienda
         entity.setTienda(tienda);
-
-        // 4. Guardamos
-        var categoriaGuardada = categoriasRepository.save(entity);
         
+        var categoriaGuardada = categoriasRepository.save(entity);
         return convertirEntidadAResponse(categoriaGuardada);
     }
 
     @Override
     public List<CategoriasResponse> readAllByTienda(String nombreTienda) {
-        // Usamos el método del repositorio que filtra por tienda
         return categoriasRepository.findByTiendaNombreUrl(nombreTienda).stream()
                 .map(this::convertirEntidadAResponse)
                 .collect(Collectors.toList());
@@ -60,7 +61,7 @@ public class CategoriasServiceImpl implements CategoriasService {
     public CategoriasResponse update(Long id, CategoriasRequest request) {
         var entity = categoriasRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + id));
-
+        
         if (request.getNombre() != null && !request.getNombre().isBlank()) {
             entity.setNombre(request.getNombre());
         }
@@ -76,7 +77,6 @@ public class CategoriasServiceImpl implements CategoriasService {
         categoriasRepository.delete(entity);
     }
 
-    // --- Helper para convertir Entidad a DTO ---
     private CategoriasResponse convertirEntidadAResponse(CategoriasEntity entity) {
         var response = new CategoriasResponse();
         BeanUtils.copyProperties(entity, response);

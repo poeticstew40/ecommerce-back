@@ -34,9 +34,8 @@ public class DireccionEntity {
 
     @Column(nullable = false)
     private String numero;
-
-    private String piso;        // Opcional
-    private String departamento; // Opcional
+    private String piso;
+    private String departamento;
 
     @Column(nullable = false)
     private String localidad;
@@ -47,9 +46,8 @@ public class DireccionEntity {
     @Column(nullable = false)
     private String codigoPostal;
 
-    // Relación con el Usuario
     @ManyToOne
     @JoinColumn(name = "usuario_dni", nullable = false)
-    @JsonBackReference("usuario-direccion") // Evita bucle infinito al convertir a JSON
+    @JsonBackReference("usuario-direccion")
     private UsuariosEntity usuario;
 }

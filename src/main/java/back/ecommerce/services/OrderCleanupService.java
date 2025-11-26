@@ -25,47 +25,39 @@ public class OrderCleanupService {
     @Scheduled(fixedRate = 60000)
     @Transactional
     public void cancelarPedidosExpirados() {
-        log.info("🧹 [CRON JOB] Iniciando limpieza de pedidos expirados...");
-
-        // 1. Definimos qué es "Viejo": Pedidos creados hace más de 10 minutos
+        log.info("[CRON JOB] Iniciando limpieza de pedidos expirados...");
+        
         LocalDateTime tiempoLimite = LocalDateTime.now().minusMinutes(10);
-
-        // 2. Buscamos en la BD: Estado "PENDIENTE" y Fecha < tiempoLimite
         List<PedidosEntity> pedidosViejos = pedidosRepository.findByEstadoAndFechaPedidoBefore("PENDIENTE", tiempoLimite);
 
         if (pedidosViejos.isEmpty()) {
-            log.info("✅ [CRON JOB] No se encontraron pedidos pendientes para cancelar.");
+            log.info("[CRON JOB] No se encontraron pedidos pendientes para cancelar.");
             return;
         }
 
-        log.info("⚠️ [CRON JOB] Se encontraron {} pedidos expirados. Procesando devoluciones...", pedidosViejos.size());
+        log.info("[CRON JOB] Se encontraron {} pedidos expirados. Procesando devoluciones...", pedidosViejos.size());
 
-        // 3. Procesamos cada pedido viejo
         for (PedidosEntity pedido : pedidosViejos) {
             try {
-                log.info("   🚫 Cancelando Pedido #{}...", pedido.getId());
-
-                // A. Devolver Stock de cada item al producto original
+                log.info("Cancelando Pedido #{}...", pedido.getId());
+                
                 for (ItemsPedidosEntity item : pedido.getItemsPedido()) {
                     var producto = item.getProducto();
                     int cantidadARestaurar = item.getCantidad();
                     
-                    // Sumamos la cantidad reservada de vuelta al stock disponible
                     producto.setStock(producto.getStock() + cantidadARestaurar);
                     productosRepository.save(producto);
                     
-                    log.info("      -> Producto '{}': Stock restaurado +{}", producto.getNombre(), cantidadARestaurar);
+                    log.info("-> Producto '{}': Stock restaurado +{}", producto.getNombre(), cantidadARestaurar);
                 }
 
-                // B. Marcar pedido como CANCELADO (para no procesarlo de nuevo)
                 pedido.setEstado("CANCELADO");
                 pedidosRepository.save(pedido);
                 
             } catch (Exception e) {
-                log.error("❌ Error procesando limpieza del pedido #{}: {}", pedido.getId(), e.getMessage());
+                log.error("Error procesando limpieza del pedido #{}: {}", pedido.getId(), e.getMessage());
             }
         }
-        
-        log.info("🏁 [CRON JOB] Limpieza finalizada exitosamente.");
+        log.info("[CRON JOB] Limpieza finalizada exitosamente.");
     }
 }

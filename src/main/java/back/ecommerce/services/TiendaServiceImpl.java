@@ -1,7 +1,7 @@
 package back.ecommerce.services;
 
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Value; // Importar Value
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,18 +10,17 @@ import back.ecommerce.dtos.TiendaResponse;
 import back.ecommerce.entities.TiendaEntity;
 import back.ecommerce.repositories.TiendaRepository;
 import back.ecommerce.repositories.UsuariosRepository;
-import lombok.RequiredArgsConstructor; // Cambiado a RequiredArgsConstructor para facilitar el uso de @Value
+import lombok.RequiredArgsConstructor;
 
 @Service
 @Transactional
-@RequiredArgsConstructor // Usamos este en lugar de AllArgsConstructor para permitir campos no-finales con @Value si es necesario, o mantenemos la estructura
+@RequiredArgsConstructor
 public class TiendaServiceImpl implements TiendaService {
 
     private final TiendaRepository tiendaRepository;
     private final UsuariosRepository usuariosRepository;
     private final EmailService emailService;
 
-    // ✅ CAMBIO: Inyección de la URL del frontend para los emails
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
@@ -43,16 +42,14 @@ public class TiendaServiceImpl implements TiendaService {
         entity.setVendedor(vendedor);
 
         var tiendaGuardada = tiendaRepository.save(entity);
-        
-        String asunto = "¡Tu tienda '" + tiendaGuardada.getNombreFantasia() + "' está lista!";
-        
-        // Usamos la variable inyectada en lugar de texto fijo
+
+        String asunto = "Tu tienda '" + tiendaGuardada.getNombreFantasia() + "' está lista!";
         String mensaje = "Hola " + vendedor.getNombre() + ",\n\n" +
                          "Felicitaciones, ya creamos tu espacio en nuestra plataforma.\n" +
                          "Podés acceder a tu panel de administración y empezar a cargar productos.\n\n" +
                          "Tu URL pública es: " + frontendUrl + "/tienda/" + tiendaGuardada.getNombreUrl() + "\n\n" +
                          "Éxitos,\nEl equipo de Ecommerce.";
-
+        
         emailService.enviarCorreo(vendedor.getEmail(), asunto, mensaje);
         
         return convertirEntidadAResponse(tiendaGuardada);
@@ -62,7 +59,6 @@ public class TiendaServiceImpl implements TiendaService {
     public TiendaResponse readByNombreUrl(String nombreUrl) {
         var entity = tiendaRepository.findByNombreUrl(nombreUrl)
                 .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreUrl));
-        
         return convertirEntidadAResponse(entity);
     }
 

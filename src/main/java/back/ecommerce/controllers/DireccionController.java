@@ -26,19 +26,16 @@ public class DireccionController {
 
     private final DireccionService direccionService;
 
-    // Agregar una nueva dirección
     @PostMapping
     public ResponseEntity<DireccionResponse> agregarDireccion(@Valid @RequestBody DireccionRequest request) {
         return ResponseEntity.ok(direccionService.create(request));
     }
 
-    // Listar todas las direcciones de un usuario
     @GetMapping("/{dni}")
     public ResponseEntity<List<DireccionResponse>> listarDirecciones(@PathVariable Long dni) {
         return ResponseEntity.ok(direccionService.readAllByUsuario(dni));
     }
 
-    // Eliminar una dirección
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarDireccion(@PathVariable Long id) {
         direccionService.delete(id);

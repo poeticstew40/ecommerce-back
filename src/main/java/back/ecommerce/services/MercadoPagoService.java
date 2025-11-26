@@ -39,10 +39,8 @@ public class MercadoPagoService {
 
     public String crearPreferencia(PedidosEntity pedido) {
         MercadoPagoConfig.setAccessToken(accessToken);
-
         List<PreferenceItemRequest> items = new ArrayList<>();
         
-        // 1. Agregamos los PRODUCTOS reales
         pedido.getItemsPedido().forEach(item -> {
             PreferenceItemRequest itemRequest = PreferenceItemRequest.builder()
                     .title(item.getProducto().getNombre())
@@ -53,7 +51,6 @@ public class MercadoPagoService {
             items.add(itemRequest);
         });
 
-        // 2. ✅ Agregamos el ENVÍO como un item más si existe
         if (pedido.getCostoEnvio() != null && pedido.getCostoEnvio() > 0) {
             PreferenceItemRequest itemEnvio = PreferenceItemRequest.builder()
                     .title("Costo de Envío")
@@ -83,7 +80,7 @@ public class MercadoPagoService {
             Preference preference = client.create(preferenceRequest);
             return preference.getInitPoint();
         } catch (MPApiException e) {
-            System.err.println("❌ ERROR MP: " + e.getApiResponse().getContent());
+            System.err.println("ERROR MP: " + e.getApiResponse().getContent());
             throw new RuntimeException("Error de MP", e);
         } catch (Exception e) {
             throw new RuntimeException("Error general", e);
@@ -103,25 +100,19 @@ public class MercadoPagoService {
                 PedidosEntity pedido = pedidosRepository.findById(pedidoId)
                         .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
 
-                // Verificamos si YA estaba pagado para no enviar spam ni procesar doble
                 if (!"PAGADO".equals(pedido.getEstado())) {
                     
-                    // A. Actualizamos estado
                     pedido.setEstado("PAGADO");
                     pedidosRepository.save(pedido);
-                    System.out.println("✅ Pedido #" + pedidoId + " marcado como PAGADO.");
-
-                    // B. Enviamos el Correo con el desglose calculado
+                    
                     if (pedido.getUsuario() != null && pedido.getUsuario().getEmail() != null) {
                         String emailUsuario = pedido.getUsuario().getEmail();
-                        String asunto = "¡Pago Confirmado! Pedido #" + pedido.getId();
+                        String asunto = "Pago Confirmado! Pedido #" + pedido.getId();
                         
-                        // --- CÁLCULOS PARA MOSTRAR BIEN LOS NÚMEROS ---
                         BigDecimal total = BigDecimal.valueOf(pedido.getTotal());
                         BigDecimal envio = BigDecimal.valueOf(pedido.getCostoEnvio() != null ? pedido.getCostoEnvio() : 0.0);
-                        BigDecimal subtotal = total.subtract(envio); // Restamos envío al total para sacar el subtotal puro
+                        BigDecimal subtotal = total.subtract(envio);
 
-                        // --- ARMADO DEL MENSAJE ---
                         String mensaje = "Hola " + pedido.getUsuario().getNombre() + ",\n\n" +
                                 "Tu pago ha sido procesado exitosamente.\n" +
                                 "--------------------------------------\n" +
@@ -131,7 +122,7 @@ public class MercadoPagoService {
                                 "TOTAL ABONADO:      $" + total + "\n" +
                                 "--------------------------------------\n\n" +
                                 "Tienda: " + (pedido.getTienda() != null ? pedido.getTienda().getNombreFantasia() : "E-commerce") + "\n" +
-                                "¡Gracias por tu compra!";
+                                "Gracias por tu compra!";
 
                         emailService.enviarCorreo(emailUsuario, asunto, mensaje);
                     }

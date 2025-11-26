@@ -39,7 +39,7 @@ public class PedidosEntity {
     private Double total;
     private String metodoEnvio;
     private String direccionEnvio;
-    
+
     @Column(columnDefinition = "double default 0.0")
     private Double costoEnvio;
 
@@ -51,6 +51,11 @@ public class PedidosEntity {
     @JsonManagedReference("pedido-item")
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ItemsPedidosEntity> itemsPedido;
+
+    @ManyToOne
+    @JoinColumn(name = "tienda_id")
+    @JsonBackReference("tienda-pedido")
+    private TiendaEntity tienda;
 
     public void addItemPedido(ItemsPedidosEntity item) {
         if (this.itemsPedido == null) {
@@ -66,9 +71,4 @@ public class PedidosEntity {
             item.setPedido(null);
         }
     } 
-
-    @ManyToOne
-    @JoinColumn(name = "tienda_id")
-    @JsonBackReference("tienda-pedido")
-    private TiendaEntity tienda;
 }

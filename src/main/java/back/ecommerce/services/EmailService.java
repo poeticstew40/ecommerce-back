@@ -16,14 +16,12 @@ public class EmailService {
     @Value("${resend.api.key}")
     private String resendApiKey;
 
-    // Si ya verificaste tu dominio, ponlo acá. Si no, usa "onboarding@resend.dev"
-    private final String REMITENTE = "Ecommerce <info@nicolasgigena.com.ar>"; 
+    private final String REMITENTE = "Ecommerce <info@nicolasgigena.com.ar>";
 
     @Async
     public void enviarCorreo(String to, String subject, String body) {
         try {
             Resend resend = new Resend(resendApiKey);
-
             CreateEmailOptions params = CreateEmailOptions.builder()
                     .from(REMITENTE)
                     .to(to)
@@ -32,10 +30,9 @@ public class EmailService {
                     .build();
 
             resend.emails().send(params);
-            log.info("✅ Email enviado a: {}", to);
-
+            log.info("Email enviado correctamente a: {}", to);
         } catch (Exception e) {
-            log.error("❌ Error enviando email: {}", e.getMessage());
+            log.error("Error enviando email: {}", e.getMessage());
         }
     }
 }

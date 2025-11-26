@@ -21,45 +21,38 @@ import back.ecommerce.services.PedidosService;
 import lombok.AllArgsConstructor;
 
 @RestController
-@RequestMapping("/api/tiendas/{nombreTienda}/pedidos") // 👈 Ruta base dinámica
+@RequestMapping("/api/tiendas/{nombreTienda}/pedidos")
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class PedidosController {
 
     private final PedidosService pedidosService;
 
-    // 1. Crear Pedido en la tienda
     @PostMapping
     public ResponseEntity<PedidosResponse> postPedidos(
             @PathVariable String nombreTienda,
             @RequestBody PedidosRequest request) {
 
         final var pedido = this.pedidosService.create(nombreTienda, request);
-        
         URI location = ServletUriComponentsBuilder
                 .fromCurrentContextPath()
                 .path("/tienda/{nombreTienda}/pedidos/{id}")
                 .buildAndExpand(nombreTienda, pedido.getId())
                 .toUri();
-                
         return ResponseEntity.created(location).body(pedido);
     }
 
-    // 2. Ver todos los pedidos de la tienda (Para el admin/vendedor)
     @GetMapping
     public ResponseEntity<List<PedidosResponse>> getAllByTienda(@PathVariable String nombreTienda) {
         return ResponseEntity.ok(this.pedidosService.readAllByTienda(nombreTienda));
     }
 
-    // 3. Ver pedidos de un usuario específico en esta tienda
     @GetMapping("/usuario/{dni}")
     public ResponseEntity<List<PedidosResponse>> getPedidosByUsuarioDni(
             @PathVariable String nombreTienda,
             @PathVariable Long dni) {
         return ResponseEntity.ok(this.pedidosService.findByUsuarioDni(nombreTienda, dni));
     }
-
-    // --- Métodos por ID ---
 
     @GetMapping("/{id}")
     public ResponseEntity<PedidosResponse> getPedidosById(

@@ -12,11 +12,9 @@ import lombok.NoArgsConstructor;
 @Data
 @Builder
 public class ItemsPedidosRequest {
-
     @Min(value = 1, message = "La cantidad debe ser al menos 1")
     private int cantidad;
 
     @NotNull(message = "El ID del producto es obligatorio")
     private Long productoId;
-
 }

@@ -23,7 +23,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Entity
 @Table(name = "favoritos", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"usuario_dni", "producto_id"}) // Evita duplicados en BD
+    @UniqueConstraint(columnNames = {"usuario_dni", "producto_id"})
 })
 public class FavoritoEntity {
 

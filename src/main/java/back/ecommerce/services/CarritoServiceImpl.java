@@ -26,44 +26,36 @@ public class CarritoServiceImpl implements CarritoService {
     @Override
     public CarritoResponse agregarProducto(String nombreTienda, CarritoRequest request) {
         
-        // 1. Buscar Usuario
         var usuario = usuariosRepository.findById(request.getUsuarioDni())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + request.getUsuarioDni()));
 
-        // 2. Buscar Producto
         var producto = productosRepository.findById(request.getProductoId())
                 .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con ID: " + request.getProductoId()));
 
-        // 3. ✅ VALIDACIÓN MULTITIENDA
+        // Validación: El producto debe pertenecer a la tienda actual
         if (!producto.getTienda().getNombreUrl().equals(nombreTienda)) {
             throw new IllegalArgumentException("Error de Seguridad: El producto '" + producto.getNombre() + 
                                                "' pertenece a la tienda '" + producto.getTienda().getNombreUrl() + 
                                                "' y no a '" + nombreTienda + "'.");
         }
 
-        // 4. Validar Stock
         if (producto.getStock() < request.getCantidad()) {
             throw new IllegalArgumentException("No hay suficiente stock. Disponible: " + producto.getStock());
         }
 
-        // 5. Lógica de Agregar o Sumar
         var itemExistente = carritoRepository.findByUsuarioDniAndProductoId(request.getUsuarioDni(), request.getProductoId());
-
         ItemCarritoEntity itemGuardado;
 
         if (itemExistente.isPresent()) {
-            // Si ya existe, actualizamos la cantidad
             var item = itemExistente.get();
             item.setCantidad(item.getCantidad() + request.getCantidad());
             
-            // Re-validamos stock con la nueva cantidad total
             if (producto.getStock() < item.getCantidad()) {
                 throw new IllegalArgumentException("Stock insuficiente para la cantidad total acumulada.");
             }
             
             itemGuardado = carritoRepository.save(item);
         } else {
-            // Si no existe, creamos uno nuevo
             var nuevoItem = new ItemCarritoEntity();
             nuevoItem.setUsuario(usuario);
             nuevoItem.setProducto(producto);

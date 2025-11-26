@@ -28,23 +28,20 @@ public class CloudinaryService {
         try {
             File uploadedFile = convertMultiPartToFile(file);
             
-            // Configuración para la versión 2.0.0
             Map<String, String> config = new HashMap<>();
             config.put("cloud_name", cloudName);
             config.put("api_key", apiKey);
             config.put("api_secret", apiSecret);
 
             Cloudinary cloudinary = new Cloudinary(config);
-
+            
             // Subida de imagen
             Map uploadResult = cloudinary.uploader().upload(uploadedFile, ObjectUtils.emptyMap());
             
-            // Borramos el archivo temporal del servidor para no llenar disco
+            // Limpieza archivo temporal
             uploadedFile.delete();
-
-            // Retornamos la URL pública (HTTPS)
+            
             return uploadResult.get("secure_url").toString();
-
         } catch (Exception e) {
             throw new RuntimeException("Error al subir la imagen a Cloudinary", e);
         }

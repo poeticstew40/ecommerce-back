@@ -31,48 +31,34 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 1. ✅ CORS ACTIVADO: Fundamental para que el front se comunique con el back
             .cors(Customizer.withDefaults())
-            
-            // 2. CSRF Desactivado (Correcto para JWT/Stateless)
             .csrf(AbstractHttpConfigurer::disable)
-            
-            // 3. Reglas de Autorización (EL ORDEN IMPORTA)
             .authorizeHttpRequests(auth -> auth
-                // A. Rutas PÚBLICAS (Login, Registro, Docs, Ver Tiendas)
-                // Usamos requestMatchers con HttpMethod para ser más específicos
+                // Rutas Públicas
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
                 .requestMatchers("/api/pagos/webhook").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/tiendas/**").permitAll() // Ver productos es público
+                .requestMatchers(HttpMethod.GET, "/api/tiendas/**").permitAll()
+                .requestMatchers("/error").permitAll()
                 
-                // B. Rutas PROTEGIDAS (Subir imágenes, Crear tiendas, Comprar)
-                // Cloudinary: Solo usuarios logueados pueden subir fotos
+                // Rutas Protegidas
                 .requestMatchers("/api/storage/**").authenticated() 
-                
-                // C. Todo lo demás requiere login
                 .anyRequest().authenticated()
             )
-
-            // 4. Gestión de Sesión (Stateless)
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-
-            // 5. Providers y Filtros
             .authenticationProvider(authenticationProvider)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    // ✅ CONFIGURACIÓN DE CORS (Lo que te está fallando)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        // En desarrollo "*" está bien. En producción, pon la URL de tu Render/Vercel.
-        configuration.setAllowedOrigins(List.of("*")); 
+        // Permite cualquier origen 
+        configuration.setAllowedOrigins(List.of("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
         configuration.setExposedHeaders(Arrays.asList("Access-Control-Allow-Origin", "Access-Control-Allow-Credentials"));

@@ -19,7 +19,7 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 
 @RestController
-@RequestMapping("/api/tiendas") // Endpoint base para gestión de tiendas
+@RequestMapping("/api/tiendas")
 @CrossOrigin(origins = "*")
 @AllArgsConstructor
 public class TiendaController {
@@ -29,13 +29,11 @@ public class TiendaController {
     @PostMapping
     public ResponseEntity<TiendaResponse> crearTienda(@Valid @RequestBody TiendaRequest request) {
         var tiendaCreada = tiendaService.create(request);
-
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{nombreUrl}")
                 .buildAndExpand(tiendaCreada.getNombreUrl())
                 .toUri();
-
         return ResponseEntity.created(location).body(tiendaCreada);
     }
 

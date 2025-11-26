@@ -26,25 +26,21 @@ public class FavoritoServiceImpl implements FavoritoService {
     @Override
     public String toggleFavorito(String nombreTienda, FavoritoRequest request) {
         
-        // 1. Buscar el producto
         var producto = productosRepository.findById(request.getProductoId())
                 .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con ID: " + request.getProductoId()));
 
-        // 2. 🛡️ VALIDACIÓN DE SEGURIDAD: Coherencia de Tienda
-        // Si intentan likear un producto de 'Adidas' estando en la tienda 'Nike', explota.
+        // Validación: El producto debe ser de la tienda que se está navegando
         if (!producto.getTienda().getNombreUrl().equals(nombreTienda)) {
             throw new IllegalArgumentException("Error de Seguridad: El producto '" + producto.getNombre() + 
                                                "' pertenece a la tienda '" + producto.getTienda().getNombreUrl() + 
                                                "' y no a '" + nombreTienda + "'.");
         }
 
-        // 3. Si ya existe, lo borramos (Dislike)
         if (favoritoRepository.existsByUsuarioDniAndProductoId(request.getUsuarioDni(), request.getProductoId())) {
             favoritoRepository.deleteByUsuarioDniAndProductoId(request.getUsuarioDni(), request.getProductoId());
             return "Producto eliminado de favoritos";
         }
 
-        // 4. Si no existe, lo creamos (Like)
         var usuario = usuariosRepository.findById(request.getUsuarioDni())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + request.getUsuarioDni()));
 

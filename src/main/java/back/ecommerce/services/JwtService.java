@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-import org.springframework.beans.factory.annotation.Value; // Importar Value
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +19,6 @@ import io.jsonwebtoken.security.Keys;
 @Service
 public class JwtService {
 
-    // ✅ CAMBIO: Inyectamos la clave desde application.properties
     @Value("${jwt.secret.key}")
     private String secretKey;
 
@@ -68,7 +67,6 @@ public class JwtService {
     }
 
     private Key getSignInKey() {
-        // ✅ CAMBIO: Usamos la variable 'secretKey' inyectada en lugar de la constante
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }

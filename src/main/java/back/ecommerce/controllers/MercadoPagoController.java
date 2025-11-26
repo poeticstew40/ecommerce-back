@@ -38,9 +38,7 @@ public class MercadoPagoController {
             return ResponseEntity.badRequest().body("Este pedido ya fue pagado.");
         }
 
-        // Delegamos al servicio que ahora lee las credenciales de la configuración
         String urlPago = mercadoPagoService.crearPreferencia(pedido);
-        
         return ResponseEntity.ok(Map.of("url", urlPago));
     }
     
@@ -50,10 +48,8 @@ public class MercadoPagoController {
             @RequestParam(value = "id", required = false) Long id) {
 
         if ("payment".equals(topic) && id != null) {
-            System.out.println("🔔 Notificación de Pago recibida. ID: " + id);
             mercadoPagoService.procesarNotificacion(id);
         }
-        
         return ResponseEntity.ok().build();
     }
 }

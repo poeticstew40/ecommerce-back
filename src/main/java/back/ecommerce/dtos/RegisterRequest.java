@@ -29,7 +29,4 @@ public class RegisterRequest {
 
     @NotBlank(message = "La contraseña es obligatoria")
     private String password;
-    
-    // Opcional: Podrías recibir el ROL si querés crear vendedores desde acá
-    // private String rol; 
 }

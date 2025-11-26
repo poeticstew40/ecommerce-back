@@ -28,7 +28,7 @@ public class CarritoController {
 
     @PostMapping("/agregar")
     public ResponseEntity<CarritoResponse> agregarAlCarrito(
-            @PathVariable String nombreTienda, // ✅ Recibimos el nombre de la tienda
+            @PathVariable String nombreTienda,
             @Valid @RequestBody CarritoRequest request) {
         
         return ResponseEntity.ok(carritoService.agregarProducto(nombreTienda, request));
@@ -38,7 +38,6 @@ public class CarritoController {
     public ResponseEntity<List<CarritoResponse>> verCarrito(
             @PathVariable String nombreTienda, 
             @PathVariable Long usuarioDni) {
-        // Opcional: Podrías filtrar el carrito para mostrar solo items de ESTA tienda
         return ResponseEntity.ok(carritoService.obtenerCarrito(usuarioDni));
     }
 

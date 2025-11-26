@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DireccionResponse {
-
     private Long id;
     private String calle;
     private String numero;

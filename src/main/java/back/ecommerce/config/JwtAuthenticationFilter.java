@@ -36,14 +36,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
-        // 🕵️ LOG 1: Ver si llega el header
-        System.out.println(">>> FILTRO JWT: Procesando request a: " + request.getRequestURI());
-        if (authHeader != null) {
-            System.out.println(">>> FILTRO JWT: Header Authorization encontrado: " + authHeader.substring(0, Math.min(authHeader.length(), 15)) + "...");
-        } else {
-            System.out.println(">>> FILTRO JWT: NO hay header Authorization. Pasando como anónimo.");
-        }
-
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -52,9 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         jwt = authHeader.substring(7);
         try {
             userEmail = jwtService.extractUsername(jwt);
-            System.out.println(">>> FILTRO JWT: Usuario extraído del token: " + userEmail);
         } catch (Exception e) {
-            System.out.println(">>> FILTRO JWT: Error al extraer usuario del token: " + e.getMessage());
             filterChain.doFilter(request, response);
             return;
         }
@@ -63,7 +53,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
             
             if (jwtService.isTokenValid(jwt, userDetails)) {
-                System.out.println(">>> FILTRO JWT: Token VÁLIDO. Autenticando usuario.");
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
@@ -71,8 +60,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 );
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
-            } else {
-                System.out.println(">>> FILTRO JWT: Token INVÁLIDO para el usuario " + userEmail);
             }
         }
         

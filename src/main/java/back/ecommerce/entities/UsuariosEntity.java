@@ -40,12 +40,11 @@ public class UsuariosEntity implements UserDetails {
     private String apellido;
 
     @Enumerated(EnumType.STRING)
-    private Rol rol; // Asegurate de tener el Enum Rol creado
+    private Rol rol;
 
     @Column(columnDefinition = "boolean default false")
-    private boolean emailVerificado; 
-    
-    private String verificationCode; // El código UUID que va en el link
+    private boolean emailVerificado;
+    private String verificationCode;
 
     @OneToMany(mappedBy = "usuario")
     @JsonManagedReference("usuario-pedido")
@@ -59,8 +58,6 @@ public class UsuariosEntity implements UserDetails {
     @JsonManagedReference("usuario-favorito")
     private List<FavoritoEntity> favoritos;
 
-    // --- MÉTODOS DE USER DETAILS (OBLIGATORIOS) ---
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(rol.name()));
@@ -68,7 +65,7 @@ public class UsuariosEntity implements UserDetails {
 
     @Override
     public String getUsername() {
-        return email; // Usamos el email como usuario
+        return email;
     }
 
     @Override

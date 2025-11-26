@@ -12,7 +12,6 @@ import lombok.NoArgsConstructor;
 @Data
 @Builder
 public class PedidosRequest {
-
     private Long id;
     private String estado;
     private Double total;
@@ -21,5 +20,4 @@ public class PedidosRequest {
     private String metodoEnvio;
     private String direccionEnvio;
     private Double costoEnvio;
-
 }

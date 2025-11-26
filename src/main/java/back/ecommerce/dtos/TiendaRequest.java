@@ -15,11 +15,11 @@ import lombok.NoArgsConstructor;
 public class TiendaRequest {
 
     @NotBlank(message = "El nombre URL es obligatorio")
-    @Pattern(regexp = "^[a-z0-9-]+$", message = "El nombre URL solo puede tener letras minúsculas, números y guiones (ej: mi-tienda)")
-    private String nombreUrl; // Ej: "la-ferreteria" (sin espacios)
+    @Pattern(regexp = "^[a-z0-9-]+$", message = "El nombre URL solo puede tener letras minúsculas, números y guiones")
+    private String nombreUrl;
 
     @NotBlank(message = "El nombre de fantasía es obligatorio")
-    private String nombreFantasia; // Ej: "La Ferretería de Juan"
+    private String nombreFantasia;
 
     private String logo;
     private String descripcion;
