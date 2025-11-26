@@ -19,14 +19,14 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import back.ecommerce.dtos.ProductosRequest;
 import back.ecommerce.dtos.ProductosResponse;
 import back.ecommerce.services.ProductosService;
-import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 
 @RestController
@@ -36,6 +36,7 @@ import lombok.AllArgsConstructor;
 public class ProductosController {
 
     private final ProductosService productosService;
+    private final ObjectMapper objectMapper;
 
     @GetMapping
     public ResponseEntity<List<ProductosResponse>> getAllByTienda(
@@ -47,11 +48,11 @@ public class ProductosController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProductosResponse> postProductos(
             @PathVariable String nombreTienda,
-            
-            @Parameter(description = "JSON del producto", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProductosRequest.class)))
-            @Valid @RequestPart("producto") ProductosRequest request, 
-            
-            @RequestPart(value = "file", required = false) MultipartFile file) {
+            @Parameter(schema = @Schema(type = "string", format = "json"))
+            @RequestPart("producto") String productoStr, 
+            @RequestPart(value = "file", required = false) MultipartFile file) throws JsonProcessingException {
+
+        ProductosRequest request = objectMapper.readValue(productoStr, ProductosRequest.class);
 
         final var producto = this.productosService.create(nombreTienda, request, file);
 

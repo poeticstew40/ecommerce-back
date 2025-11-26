@@ -15,14 +15,14 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import back.ecommerce.dtos.TiendaRequest;
 import back.ecommerce.dtos.TiendaResponse;
 import back.ecommerce.services.TiendaService;
-import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 
 @RestController
@@ -32,13 +32,15 @@ import lombok.AllArgsConstructor;
 public class TiendaController {
 
     private final TiendaService tiendaService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TiendaResponse> crearTienda(
-            @Parameter(description = "Datos de la tienda", content = @Content(mediaType = "application/json", schema = @Schema(implementation = TiendaRequest.class)))
-            @Valid @RequestPart("tienda") TiendaRequest request,
-            
-            @RequestPart(value = "file", required = false) MultipartFile file) {
+            @Parameter(schema = @Schema(type = "string", format = "json"))
+            @RequestPart("tienda") String tiendaStr,
+            @RequestPart(value = "file", required = false) MultipartFile file) throws JsonProcessingException {
+        
+        TiendaRequest request = objectMapper.readValue(tiendaStr, TiendaRequest.class);
         
         var tiendaCreada = tiendaService.create(request, file);
         
@@ -58,14 +60,15 @@ public class TiendaController {
     @PatchMapping(value = "/{nombreUrl}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TiendaResponse> actualizarTienda(
             @PathVariable String nombreUrl,
-            
-            @Parameter(description = "Datos a actualizar", content = @Content(mediaType = "application/json", schema = @Schema(implementation = TiendaRequest.class)))
-            @RequestPart(value = "tienda", required = false) TiendaRequest request,
-            
-            @RequestPart(value = "file", required = false) MultipartFile file) {
+            @Parameter(schema = @Schema(type = "string", format = "json"))
+            @RequestPart(value = "tienda", required = false) String tiendaStr,
+            @RequestPart(value = "file", required = false) MultipartFile file) throws JsonProcessingException {
         
-        TiendaRequest safeRequest = request != null ? request : new TiendaRequest();
+        TiendaRequest request = new TiendaRequest();
+        if (tiendaStr != null && !tiendaStr.isEmpty()) {
+            request = objectMapper.readValue(tiendaStr, TiendaRequest.class);
+        }
         
-        return ResponseEntity.ok(tiendaService.update(nombreUrl, safeRequest, file));
+        return ResponseEntity.ok(tiendaService.update(nombreUrl, request, file));
     }
 }
