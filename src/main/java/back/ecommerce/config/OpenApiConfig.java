@@ -46,8 +46,7 @@ public class OpenApiConfig {
                                 ---
 
                                 ## 3. Gestión de Imágenes (Multipart File)
-                                Hemos actualizado la carga de imágenes para que sea directa.
-                                * **Productos y Tiendas:** Los endpoints de creación (`POST`) ahora consumen `multipart/form-data`.
+                                * **Productos y Tiendas:** Los endpoints de creación (`POST`) consumen `multipart/form-data`.
                                 * En Swagger, verás un campo `file` para seleccionar la imagen desde tu computadora.
                                 * El campo `producto` (o `tienda`) debe enviarse como `application/json`. Swagger se encarga de esto automáticamente, pero si usas Postman, debes configurar el `Content-Type` manualmente en esa parte del form-data.
 
