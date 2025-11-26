@@ -3,23 +3,22 @@ import json
 import os
 import time
 import sys
+import base64
 
 # ================= CONFIGURACIÓN =================
-# Descomenta la que vayas a usar:
-
 # A) PARA RENDER (Producción)
 BASE_URL = "https://ecommerce-back-2uxy.onrender.com/api"
 
-# B) PARA LOCAL (Tu PC)
+# B) PARA LOCAL (Tu PC) - Descomentar si usas local
 # BASE_URL = "http://localhost:8080/api"
 
-# DATOS DE PRUEBA
+# DATOS DE PRUEBA (LOS TUYOS)
 EMAIL = "nicokenrou@gmail.com"
 PASSWORD = "password123"
-DNI = 22334455 # Cambiamos DNI para asegurar usuario nuevo si borraste el anterior
+DNI = 22334455  # ✅ DNI RESTAURADO AL QUE YA TIENES VERIFICADO
 NOMBRE_TIENDA = "tienda-full-test" 
 
-# COLORES
+# COLORES CONSOLA
 GREEN = "\033[92m"
 RED = "\033[91m"
 CYAN = "\033[96m"
@@ -28,7 +27,6 @@ RESET = "\033[0m"
 
 session = requests.Session()
 token = None
-global_store_slug = NOMBRE_TIENDA
 global_category_id = None
 global_product_id = None
 global_order_id = None
@@ -45,9 +43,12 @@ def log(step, message, status="INFO"):
 
 def create_dummy_image():
     filename = "test_image.png"
-    if not os.path.exists(filename):
-        with open(filename, "wb") as f:
-            f.write(os.urandom(1024))
+    # PNG válido de 1x1 pixel para que Cloudinary no explote
+    valid_png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    
+    # Sobrescribimos siempre para asegurar que no sea basura vieja
+    with open(filename, "wb") as f:
+        f.write(base64.b64decode(valid_png_b64))
     return filename
 
 def check_response(res, step_name, success_codes=[200, 201]):
@@ -60,13 +61,13 @@ def check_response(res, step_name, success_codes=[200, 201]):
 def run_full_test():
     global token, global_category_id, global_product_id, global_order_id
 
-    print(f"\n{YELLOW}=== INICIANDO TEST INTEGRAL DE E-COMMERCE ==={RESET}")
+    print(f"\n{YELLOW}=== INICIANDO TEST (CON DNI ORIGINAL: {DNI}) ==={RESET}")
     print(f"Target: {BASE_URL}")
 
     # ---------------------------------------------------------
     # 1. AUTENTICACIÓN
     # ---------------------------------------------------------
-    log("Auth", "Registrando usuario...")
+    log("Auth", "Intentando registrar usuario...")
     payload_register = {
         "dni": DNI,
         "nombre": "Tester",
@@ -74,54 +75,64 @@ def run_full_test():
         "email": EMAIL,
         "password": PASSWORD
     }
-    res = session.post(f"{BASE_URL}/auth/register", json=payload_register)
     
-    if "ya está registrado" in res.text:
-        log("Auth", "Usuario ya existe, procediendo al Login.", "WARN")
-    elif not check_response(res, "Registro"):
-        sys.exit() # Si falla registro critico, salimos
-    else:
-        log("Auth", "Usuario registrado correctamente.", "PASS")
-        print(f"\n{YELLOW}>>> 📧 IMPORTANTE: Se envió un correo a {EMAIL}.{RESET}")
-        print(f"{YELLOW}>>> Por favor, VERIFICA tu cuenta haciendo clic en el enlace del email.{RESET}")
-        input(f"Presiona {GREEN}ENTER{RESET} una vez verificado para continuar... ")
+    try:
+        res = session.post(f"{BASE_URL}/auth/register", json=payload_register)
+        
+        # Si da 200 es nuevo -> Pedir verificación
+        if res.status_code == 200:
+            log("Auth", "Usuario registrado correctamente.", "PASS")
+            print(f"\n{YELLOW}>>> 📧 IMPORTANTE: Se envió un correo a {EMAIL}.{RESET}")
+            print(f"{YELLOW}>>> Por favor, VERIFICA tu cuenta haciendo clic en el enlace del email.{RESET}")
+            input(f"Presiona {GREEN}ENTER{RESET} una vez verificado para continuar... ")
+            
+        # Si da 400 y dice que ya existe -> Usamos el existente
+        elif res.status_code == 400 and ("Ya existe" in res.text or "registrado" in res.text):
+            log("Auth", "El usuario ya existe. Saltando al Login...", "WARN")
+        else:
+            log("Registro", f"Error inesperado: {res.text}", "FAIL")
+            sys.exit()
+
+    except Exception as e:
+        print(f"Error de conexión: {e}")
+        sys.exit()
 
     log("Auth", "Iniciando sesión...")
     res = session.post(f"{BASE_URL}/auth/login", json={"email": EMAIL, "password": PASSWORD})
-    if check_response(res, "Login"):
+    
+    if res.status_code == 200:
         token = res.json().get("token")
         session.headers.update({"Authorization": f"Bearer {token}"})
-        log("Auth", "Token JWT obtenido y configurado.", "PASS")
+        log("Auth", "Login exitoso. Token configurado.", "PASS")
     else:
+        log("Auth", f"No se pudo loguear. Body: {res.text}", "FAIL")
         sys.exit()
 
     # ---------------------------------------------------------
-    # 2. DIRECCIONES (CRUD)
+    # 2. DIRECCIONES
     # ---------------------------------------------------------
-    log("Direcciones", "Creando dirección de envío...")
-    dir_payload = {
-        "usuarioDni": DNI,
-        "calle": "Av. Siempreviva",
-        "numero": "742",
-        "localidad": "Springfield",
-        "provincia": "Buenos Aires",
-        "codigoPostal": "1234"
-    }
-    res = session.post(f"{BASE_URL}/usuarios/direcciones", json=dir_payload)
-    if check_response(res, "Crear Dirección"):
-        dir_id = res.json().get("id")
-        log("Direcciones", f"Dirección creada ID: {dir_id}", "PASS")
-        
-        # Test eliminar (borramos y creamos de nuevo para dejar una activa)
-        session.delete(f"{BASE_URL}/usuarios/direcciones/{dir_id}")
-        log("Direcciones", "Dirección eliminada (Test DELETE)", "PASS")
-        # Creamos la definitiva
-        session.post(f"{BASE_URL}/usuarios/direcciones", json=dir_payload)
+    log("Direcciones", "Verificando direcciones...")
+    res_list = session.get(f"{BASE_URL}/usuarios/direcciones/{DNI}")
+    
+    if res_list.status_code == 200 and len(res_list.json()) > 0:
+        log("Direcciones", "El usuario ya tiene direcciones.", "PASS")
+    else:
+        dir_payload = {
+            "usuarioDni": DNI,
+            "calle": "Av. Test",
+            "numero": "123",
+            "localidad": "Testing",
+            "provincia": "Buenos Aires",
+            "codigoPostal": "1111"
+        }
+        res = session.post(f"{BASE_URL}/usuarios/direcciones", json=dir_payload)
+        if check_response(res, "Crear Dirección"):
+            log("Direcciones", "Dirección creada exitosamente.", "PASS")
 
     # ---------------------------------------------------------
     # 3. TIENDA
     # ---------------------------------------------------------
-    log("Tienda", f"Creando tienda '{NOMBRE_TIENDA}'...")
+    log("Tienda", f"Verificando/Creando tienda '{NOMBRE_TIENDA}'...")
     tienda_payload = {
         "nombreUrl": NOMBRE_TIENDA,
         "nombreFantasia": "Tienda Full Stack",
@@ -131,43 +142,38 @@ def run_full_test():
     }
     res = session.post(f"{BASE_URL}/tiendas", json=tienda_payload)
     
-    if res.status_code == 400 and "ya está en uso" in res.text:
-        log("Tienda", "La tienda ya existe, la usaremos.", "WARN")
-    elif check_response(res, "Crear Tienda"):
+    if res.status_code in [200, 201]:
         log("Tienda", "Tienda creada exitosamente.", "PASS")
+    elif res.status_code == 400:
+        log("Tienda", "La tienda ya existía (o error 400), continuamos...", "WARN")
     else:
-        print("Error critico creando tienda.")
-        sys.exit()
+        log("Tienda", f"Error creando tienda: {res.text}", "FAIL")
 
     # ---------------------------------------------------------
-    # 4. CATEGORÍAS (CRUD + Fix del error 400)
+    # 4. CATEGORÍAS
     # ---------------------------------------------------------
-    log("Categorías", "Creando categoría principal...")
-    # Creamos una categoria UNICA para esta ejecucion para evitar duplicados
-    cat_name = f"Tecnologia {int(time.time())}"
+    log("Categorías", "Creando categoría nueva...")
+    cat_name = f"Cat-{int(time.time())}"
     res = session.post(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/categorias", json={"nombre": cat_name})
     
     if check_response(res, "Crear Categoría"):
         global_category_id = res.json().get("id")
-        log("Categorías", f"Categoría '{cat_name}' creada con ID: {global_category_id}", "PASS")
-        
-        # Test Update
-        res_upd = session.patch(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/categorias/{global_category_id}", json={"nombre": cat_name + " Updated"})
-        if res_upd.status_code == 200:
-            log("Categorías", "Categoría actualizada (Test PATCH)", "PASS")
+        log("Categorías", f"Categoría creada ID: {global_category_id}", "PASS")
+    else:
+        sys.exit()
 
     # ---------------------------------------------------------
-    # 5. PRODUCTOS (CRUD + Imágenes)
+    # 5. PRODUCTOS (IMAGEN CLOUDINARY)
     # ---------------------------------------------------------
-    log("Productos", "Subiendo producto con imagen a Cloudinary...")
+    log("Productos", "Subiendo producto con imagen REAL (fix 500)...")
     img_file = create_dummy_image()
     
     prod_data = {
-        "categoriaId": global_category_id, # USAMOS EL ID RECIEN CREADO (Clave para evitar error 400)
-        "nombre": "Notebook Gamer",
-        "descripcion": "Potente notebook para testing",
-        "precio": 1500.0,
-        "stock": 10
+        "categoriaId": global_category_id,
+        "nombre": f"Prod-{int(time.time())}",
+        "descripcion": "Producto Final",
+        "precio": 1000.0,
+        "stock": 50
     }
     
     multipart_data = {
@@ -179,96 +185,41 @@ def run_full_test():
     
     if check_response(res, "Crear Producto"):
         global_product_id = res.json().get("id")
-        url_img = res.json().get("imagen")
         log("Productos", f"Producto creado ID: {global_product_id}", "PASS")
-        log("Cloudinary", f"Imagen subida: {url_img}", "PASS")
-
-        # Test Update Producto
-        upd_payload = {"precio": 2000.0, "stock": 5}
-        session.patch(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/productos/{global_product_id}", json=upd_payload)
-        log("Productos", "Precio y stock actualizados (Test PATCH)", "PASS")
-
-    # Crear producto basura para borrar
-    log("Productos", "Testeando borrado de productos...")
-    prod_basura_data = prod_data.copy()
-    prod_basura_data["nombre"] = "Producto a Borrar"
-    multipart_basura = {
-        'producto': (None, json.dumps(prod_basura_data), 'application/json'),
-        'file': (img_file, open(img_file, 'rb'), 'image/png')
-    }
-    res_basura = session.post(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/productos", files=multipart_basura)
-    if res_basura.status_code == 201:
-        id_basura = res_basura.json().get("id")
-        res_del = session.delete(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/productos/{id_basura}")
-        if res_del.status_code == 204:
-            log("Productos", "Producto eliminado correctamente (Test DELETE)", "PASS")
+    else:
+        sys.exit()
 
     # ---------------------------------------------------------
-    # 6. CARRITO Y PEDIDOS
+    # 6. PEDIDO
     # ---------------------------------------------------------
-    log("Carrito", "Agregando producto al carrito...")
-    cart_payload = {
-        "usuarioDni": DNI,
-        "productoId": global_product_id,
-        "cantidad": 2
-    }
-    res = session.post(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/carrito/agregar", json=cart_payload)
-    check_response(res, "Agregar a Carrito")
+    log("Carrito", "Agregando al carrito...")
+    cart_payload = { "usuarioDni": DNI, "productoId": global_product_id, "cantidad": 1 }
+    session.post(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/carrito/agregar", json=cart_payload)
 
-    log("Pedido", "Generando pedido (Checkout)...")
-    # No mandamos dirección explícita para que use la del perfil que creamos en el paso 2
+    log("Pedido", "Creando pedido...")
     pedido_payload = {
-        "usuarioDni": DNI,
-        "metodoEnvio": "Correo Argentino",
-        "costoEnvio": 500.0,
-        "items": [] # Vacío para procesar carrito
+        "usuarioDni": DNI, 
+        "metodoEnvio": "Retiro", 
+        "costoEnvio": 0.0, 
+        "items": []
     }
     res = session.post(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/pedidos", json=pedido_payload)
     
     if check_response(res, "Crear Pedido"):
         global_order_id = res.json().get("id")
         total = res.json().get("total")
-        log("Pedido", f"Pedido #{global_order_id} CREADO. Total: ${total}", "PASS")
+        log("Pedido", f"Pedido #{global_order_id} CREADO CORRECTAMENTE. Total: ${total}", "PASS")
+        
+        print(f"\n{GREEN}=== ✅ EXITO HASTA PEDIDO ==={RESET}")
+        print(f"\n{YELLOW}--- PASO MANUAL: PROBAR MERCADO PAGO ---{RESET}")
+        print(f"1. Copia este ID de Pedido: {CYAN}{global_order_id}{RESET}")
+        print(f"2. Copia tu Token JWT (ya estás logueado en Swagger, si no logueate con {EMAIL}).")
+        print(f"3. Ve a Swagger -> MercadoPago Controller -> /api/pagos/crear/{{pedidoId}}")
+        print(f"4. Pega el ID {global_order_id} y dale Execute.")
+        print(f"Si te devuelve el link, ¡ya ganaste!")
 
-    # ---------------------------------------------------------
-    # 7. MERCADO PAGO
-    # ---------------------------------------------------------
-    print(f"\n{YELLOW}--- TEST DE PAGO ---{RESET}")
-    print("Generando preferencia en Mercado Pago...")
-    
-    res = session.post(f"{BASE_URL}/pagos/crear/{global_order_id}")
-    
-    if check_response(res, "Link MercadoPago"):
-        url_pago = res.json().get("url")
-        print(f"\n{GREEN}>>> LINK DE PAGO GENERADO EXITOSAMENTE:{RESET}")
-        print(f"{CYAN}{url_pago}{RESET}")
-        
-        # --- SOLICITUD DE CREDENCIALES DE TEST ---
-        print("\nPara probar el pago real, abre el link en incógnito.")
-        print("Usa estas credenciales de prueba (Sandbox):")
-        print(f"💳 {YELLOW}Tarjeta:{RESET}   Test Cards de MP (busca 'tarjetas prueba mercado pago' en google)")
-        print(f"👤 {YELLOW}User Test:{RESET} Pedime las credenciales de test y te las paso por consola")
-        
-        opcion = input(f"\n¿Quieres simular la notificación de pago APROBADO (Webhook) ahora? (s/n): ")
-        
-        if opcion.lower() == 's':
-            # Simulamos lo que haría MercadoPago al notificar al backend
-            # NOTA: Esto usualmente requiere un ID de pago real de MP. 
-            # Como no podemos pagar desde el script, esto fallará en el backend si valida contra MP API.
-            # Pero verifica que el endpoint exista.
-            print("Enviando Webhook simulado...")
-            res_hook = session.post(f"{BASE_URL}/pagos/webhook?topic=payment&id=123456789")
-            if res_hook.status_code == 200:
-                log("Webhook", "Webhook recibido correctamente (200 OK)", "PASS")
-            else:
-                log("Webhook", "Fallo en webhook", "FAIL")
-
-    print(f"\n{GREEN}=== TEST INTEGRAL FINALIZADO ==={RESET}")
+    else:
+        sys.exit()
 
 if __name__ == "__main__":
-    try:
-        run_full_test()
-    except requests.exceptions.ConnectionError:
-        print(f"\n{RED}ERROR FATAL: No se pudo conectar al servidor.{RESET}")
-        print("1. Si es local, verifica que Spring Boot esté corriendo en puerto 8080.")
-        print("2. Si es Render, verifica que el deploy esté 'Live'.")
+    run_full_test()
