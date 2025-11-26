@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-// 👇 IMPORTAR ESTOS 3 PARA SWAGGER
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -45,12 +44,10 @@ public class ProductosController {
         return ResponseEntity.ok(this.productosService.readAllByTienda(nombreTienda, sort));
     }
 
-    // ✅ MÉTODO MODIFICADO PARA SWAGGER
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProductosResponse> postProductos(
             @PathVariable String nombreTienda,
             
-            // 👇 ESTA ANOTACIÓN ES LA CLAVE: Define el Content-Type explícito para Swagger
             @Parameter(description = "JSON del producto", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProductosRequest.class)))
             @Valid @RequestPart("producto") ProductosRequest request, 
             
@@ -67,7 +64,6 @@ public class ProductosController {
         return ResponseEntity.created(location).body(producto);
     }
 
-    // ... resto de los métodos (buscar, categoria, getById, update, delete) siguen igual ...
     @GetMapping("/buscar")
     public ResponseEntity<List<ProductosResponse>> buscarProductos(
             @PathVariable String nombreTienda,

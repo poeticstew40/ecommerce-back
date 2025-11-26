@@ -4,12 +4,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.BeanUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import back.ecommerce.dtos.CategoriasRequest;
 import back.ecommerce.dtos.CategoriasResponse;
 import back.ecommerce.entities.CategoriasEntity;
+import back.ecommerce.entities.TiendaEntity;
+import back.ecommerce.entities.UsuariosEntity;
 import back.ecommerce.repositories.CategoriasRepository;
 import back.ecommerce.repositories.TiendaRepository;
 import lombok.AllArgsConstructor;
@@ -27,7 +30,8 @@ public class CategoriasServiceImpl implements CategoriasService {
         var tienda = tiendaRepository.findByNombreUrl(nombreTienda)
                 .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreTienda));
         
-        // Validación de duplicados
+        validarDueño(tienda);
+
         boolean existe = categoriasRepository.findByTiendaNombreUrl(nombreTienda).stream()
                 .anyMatch(cat -> cat.getNombre().equalsIgnoreCase(request.getNombre()));
         
@@ -62,6 +66,8 @@ public class CategoriasServiceImpl implements CategoriasService {
         var entity = categoriasRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + id));
         
+        validarDueño(entity.getTienda());
+
         if (request.getNombre() != null && !request.getNombre().isBlank()) {
             entity.setNombre(request.getNombre());
         }
@@ -74,7 +80,21 @@ public class CategoriasServiceImpl implements CategoriasService {
     public void delete(Long id) {
         var entity = categoriasRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + id));
+        
+        validarDueño(entity.getTienda());
+
         categoriasRepository.delete(entity);
+    }
+
+    private void validarDueño(TiendaEntity tienda) {
+        UsuariosEntity usuarioLogueado = (UsuariosEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        
+        if (!tienda.getVendedor().getEmail().equals(usuarioLogueado.getEmail())) {
+            throw new IllegalArgumentException("ACCESO DENEGADO: No eres el dueño de esta tienda (Email incorrecto).");
+        }
+        if (!tienda.getVendedor().getDni().equals(usuarioLogueado.getDni())) {
+            throw new IllegalArgumentException("ACCESO DENEGADO: No eres el dueño de esta tienda (DNI incorrecto).");
+        }
     }
 
     private CategoriasResponse convertirEntidadAResponse(CategoriasEntity entity) {

@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -12,6 +13,8 @@ import org.springframework.web.multipart.MultipartFile;
 import back.ecommerce.dtos.ProductosRequest;
 import back.ecommerce.dtos.ProductosResponse;
 import back.ecommerce.entities.ProductosEntity;
+import back.ecommerce.entities.TiendaEntity;
+import back.ecommerce.entities.UsuariosEntity;
 import back.ecommerce.repositories.CategoriasRepository;
 import back.ecommerce.repositories.ProductosRepository;
 import back.ecommerce.repositories.TiendaRepository;
@@ -31,15 +34,15 @@ public class ProductosServiceImpl implements ProductosService {
 
     @Override
     public ProductosResponse create(String nombreTienda, ProductosRequest productoRequest) {
-        // Método create sin archivo (sobrecarga opcional)
         return create(nombreTienda, productoRequest, null);
     }
 
     @Override
     public ProductosResponse create(String nombreTienda, ProductosRequest productoRequest, MultipartFile file) {
-        
         var tienda = tiendaRepository.findByNombreUrl(nombreTienda)
                 .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreTienda));
+
+        validarDueño(tienda);
 
         var categoria = categoriasRepository.findById(productoRequest.getCategoriaId())
             .orElseThrow(() -> new IllegalArgumentException("Categoria no encontrada con id: " + productoRequest.getCategoriaId()));
@@ -52,7 +55,6 @@ public class ProductosServiceImpl implements ProductosService {
         if (file != null && !file.isEmpty()) {
             urlImagen = cloudinaryService.uploadFile(file);
         } else {
-            // Imagen por defecto si es necesario
             urlImagen = "https://res.cloudinary.com/dacnqinsu/image/upload/v1/default-product.png";
         }
 
@@ -70,23 +72,14 @@ public class ProductosServiceImpl implements ProductosService {
 
     @Override
     public List<ProductosResponse> readAllByTienda(String nombreTienda, String orden) {
-        
-        Sort sort = Sort.by("id").descending();
+        Sort sort = Sort.by("id").descending(); 
 
         if (orden != null) {
             switch (orden) {
-                case "precio_asc":
-                    sort = Sort.by("precio").ascending();
-                    break;
-                case "precio_desc":
-                    sort = Sort.by("precio").descending();
-                    break;
-                case "nombre_asc":
-                    sort = Sort.by("nombre").ascending();
-                    break;
-                case "nombre_desc":
-                    sort = Sort.by("nombre").descending();
-                    break;
+                case "precio_asc": sort = Sort.by("precio").ascending(); break;
+                case "precio_desc": sort = Sort.by("precio").descending(); break;
+                case "nombre_asc": sort = Sort.by("nombre").ascending(); break;
+                case "nombre_desc": sort = Sort.by("nombre").descending(); break;
             }
         }
 
@@ -124,6 +117,8 @@ public class ProductosServiceImpl implements ProductosService {
         final var entityFromDB = this.productosRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + id));
 
+        validarDueño(entityFromDB.getTienda());
+
         if (productoRequest.getNombre() != null && !productoRequest.getNombre().isBlank()) {
             entityFromDB.setNombre(productoRequest.getNombre());
         }
@@ -155,8 +150,22 @@ public class ProductosServiceImpl implements ProductosService {
     public void delete(Long id) {
         var producto = this.productosRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + id));
+        
+        validarDueño(producto.getTienda());
+
         log.info("Eliminando producto: {}", producto.getNombre());
         this.productosRepository.delete(producto);
+    }
+
+    private void validarDueño(TiendaEntity tienda) {
+        UsuariosEntity usuarioLogueado = (UsuariosEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        
+        if (!tienda.getVendedor().getEmail().equals(usuarioLogueado.getEmail())) {
+            throw new IllegalArgumentException("ACCESO DENEGADO: No eres el dueño de esta tienda (Email incorrecto).");
+        }
+        if (!tienda.getVendedor().getDni().equals(usuarioLogueado.getDni())) {
+            throw new IllegalArgumentException("ACCESO DENEGADO: No eres el dueño de esta tienda (DNI incorrecto).");
+        }
     }
 
     private ProductosResponse convertirEntidadAResponse(ProductosEntity entidad) {
@@ -170,6 +179,4 @@ public class ProductosServiceImpl implements ProductosService {
         
         return response;
     }
-
-    
 }
