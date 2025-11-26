@@ -21,7 +21,6 @@ public class TiendaRequest {
     @NotBlank(message = "El nombre de fantasía es obligatorio")
     private String nombreFantasia;
 
-    private String logo;
     private String descripcion;
 
     @NotNull(message = "El DNI del vendedor es obligatorio")
