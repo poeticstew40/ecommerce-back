@@ -18,9 +18,9 @@ public class OpenApiConfig {
                         .title("API E-commerce Multitienda")
                         .version("1.0.0")
                         .description("""
-                                # Guía de Uso para Frontend Developers
+                                # Guía de Uso para Frontend
 
-                                Bienvenido a la documentación de la API REST del E-commerce Multitienda.
+                                documentación de la API REST del E-commerce Multitienda.
                                 A continuación se detalla el flujo de trabajo para integrar esta API.
 
                                 ---
