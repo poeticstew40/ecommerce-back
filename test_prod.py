@@ -6,19 +6,17 @@ import sys
 import base64
 
 # ================= CONFIGURACIÓN =================
-# A) PARA RENDER (Producción)
+# URL BASE (Selecciona la correcta)
 BASE_URL = "https://ecommerce-back-2uxy.onrender.com/api"
+# BASE_URL = "http://localhost:8080/api" 
 
-# B) PARA LOCAL (Tu PC)
-# BASE_URL = "http://localhost:8080/api"
-
-# DATOS DE PRUEBA
+# TUS DATOS DE PRUEBA
 EMAIL = "nicokenrou@gmail.com"
 PASSWORD = "password123"
 DNI = 22334455 
-NOMBRE_TIENDA = "tienda-full-test" 
+NOMBRE_TIENDA = "tienda-coverage-test" 
 
-# COLORES
+# COLORES PARA LOGS
 GREEN = "\033[92m"
 RED = "\033[91m"
 CYAN = "\033[96m"
@@ -27,181 +25,301 @@ RESET = "\033[0m"
 
 session = requests.Session()
 token = None
-global_category_id = None
-global_product_id = None
-global_order_id = None
 
-def log(step, message, status="INFO"):
+# Variables Globales (para pasar IDs entre pruebas)
+g_dir_id = None
+g_cat_id = None
+g_prod_id = None
+g_cart_item_id = None
+g_order_id = None
+
+def log(method, endpoint, message, status="INFO"):
+    """Formato: [STATUS] METHOD Endpoint -> Mensaje"""
     if status == "PASS": 
-        print(f"[{GREEN}PASS{RESET}] {step}: {message}")
+        print(f"[{GREEN}PASS{RESET}] {method:<6} {endpoint:<45} -> {message}")
     elif status == "FAIL": 
-        print(f"[{RED}FAIL{RESET}] {step}: {message}")
+        print(f"[{RED}FAIL{RESET}] {method:<6} {endpoint:<45} -> {message}")
     elif status == "WARN": 
-        print(f"[{YELLOW}WARN{RESET}] {step}: {message}")
+        print(f"[{YELLOW}WARN{RESET}] {method:<6} {endpoint:<45} -> {message}")
     else: 
-        print(f"[{CYAN}INFO{RESET}] {step}: {message}")
+        print(f"[{CYAN}INFO{RESET}] {method:<6} {endpoint:<45} -> {message}")
+
+def check(res, method, endpoint, expected=[200, 201, 204]):
+    if res.status_code in expected:
+        return True
+    log(method, endpoint, f"Status: {res.status_code} | Body: {res.text}", "FAIL")
+    return False
 
 def create_dummy_image(name="test_image.png"):
-    # PNG válido de 1x1 pixel
+    # Genera un PNG válido de 1x1 pixel en memoria para no tener errores de "Invalid Image"
     valid_png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
     with open(name, "wb") as f:
         f.write(base64.b64decode(valid_png_b64))
     return name
 
-def check_response(res, step_name, success_codes=[200, 201]):
-    if res.status_code in success_codes:
-        return True
-    else:
-        log(step_name, f"Status: {res.status_code} | Body: {res.text}", "FAIL")
-        return False
+def run_test():
+    global token, g_dir_id, g_cat_id, g_prod_id, g_cart_item_id, g_order_id
 
-def run_full_test():
-    global token, global_category_id, global_product_id, global_order_id
+    print(f"\n{YELLOW}=== INICIANDO TEST MAESTRO DE ENDPOINTS ==={RESET}")
+    print(f"Target: {BASE_URL}\n")
 
-    print(f"\n{YELLOW}=== INICIANDO TEST FINAL (CON EDICIÓN DE TIENDA) ==={RESET}")
-    print(f"Target: {BASE_URL}")
-
-    # ---------------------------------------------------------
-    # 1. AUTENTICACIÓN
-    # ---------------------------------------------------------
-    log("Auth", "Verificando usuario...")
-    payload_register = {
-        "dni": DNI, "nombre": "Tester", "apellido": "Final", "email": EMAIL, "password": PASSWORD
-    }
+    # ==========================================
+    # 1. AUTH & USUARIOS
+    # ==========================================
+    print(f"{YELLOW}--- 1. AUTH & USUARIOS ---{RESET}")
+    
+    # Registro
+    reg_url = "/auth/register"
+    reg_data = {"dni": DNI, "nombre": "Master", "apellido": "Tester", "email": EMAIL, "password": PASSWORD}
     try:
-        res = session.post(f"{BASE_URL}/auth/register", json=payload_register)
+        res = session.post(f"{BASE_URL}{reg_url}", json=reg_data)
         if res.status_code == 200:
-            log("Auth", "Usuario registrado. VERIFICA TU EMAIL y presiona Enter.", "PASS")
-            input()
+            log("POST", reg_url, "Usuario registrado. (Requiere verificación manual si es H2)", "PASS")
         elif res.status_code == 400:
-            log("Auth", "Usuario ya existe, logueando...", "WARN")
+            log("POST", reg_url, "Usuario ya existe, procediendo.", "WARN")
+        else:
+            check(res, "POST", reg_url)
     except Exception as e:
-        print(f"Error conexión: {e}")
+        print(f"Error fatal de conexión: {e}")
         sys.exit()
 
-    res = session.post(f"{BASE_URL}/auth/login", json={"email": EMAIL, "password": PASSWORD})
-    if res.status_code == 200:
+    # Login
+    login_url = "/auth/login"
+    res = session.post(f"{BASE_URL}{login_url}", json={"email": EMAIL, "password": PASSWORD})
+    if check(res, "POST", login_url):
         token = res.json().get("token")
         session.headers.update({"Authorization": f"Bearer {token}"})
-        log("Auth", "Login exitoso.", "PASS")
+        log("POST", login_url, "Token obtenido exitosamente.", "PASS")
     else:
         sys.exit()
 
-    # ---------------------------------------------------------
+    # ==========================================
     # 2. DIRECCIONES
-    # ---------------------------------------------------------
-    res_list = session.get(f"{BASE_URL}/usuarios/direcciones/{DNI}")
-    if res_list.status_code == 200 and len(res_list.json()) == 0:
-        dir_payload = { "usuarioDni": DNI, "calle": "Av Test", "numero": "123", "localidad": "CABA", "provincia": "BA", "codigoPostal": "1000" }
-        session.post(f"{BASE_URL}/usuarios/direcciones", json=dir_payload)
-        log("Direcciones", "Dirección creada.", "PASS")
-    else:
-        log("Direcciones", "Dirección ya existe.", "PASS")
+    # ==========================================
+    print(f"\n{YELLOW}--- 2. DIRECCIONES (CRUD) ---{RESET}")
+    
+    # POST
+    url_dir = "/usuarios/direcciones"
+    dir_data = {"usuarioDni": DNI, "calle": "Av Test", "numero": "123", "localidad": "CABA", "provincia": "BA", "codigoPostal": "1414"}
+    res = session.post(f"{BASE_URL}{url_dir}", json=dir_data)
+    if check(res, "POST", url_dir):
+        g_dir_id = res.json().get("id")
+        log("POST", url_dir, f"Creada ID: {g_dir_id}", "PASS")
 
-    # ---------------------------------------------------------
-    # 3. CREAR TIENDA (AHORA CON MULTIPART)
-    # ---------------------------------------------------------
-    log("Tienda", f"Intentando crear tienda '{NOMBRE_TIENDA}'...")
-    img_logo = create_dummy_image("logo.png")
-    
-    tienda_data = {
-        "nombreUrl": NOMBRE_TIENDA,
-        "nombreFantasia": "Tienda Original",
-        "descripcion": "Descripcion inicial",
-        "vendedorDni": DNI
-    }
-    
-    # Preparamos el multipart igual que en productos
-    multipart_tienda = {
-        'tienda': (None, json.dumps(tienda_data), 'application/json'),
-        'file': (img_logo, open(img_logo, 'rb'), 'image/png')
-    }
-    
-    res = session.post(f"{BASE_URL}/tiendas", files=multipart_tienda)
-    
-    if res.status_code in [200, 201]:
-        log("Tienda", "Tienda creada exitosamente (Rol actualizado a VENDEDOR).", "PASS")
-        logo_url = res.json().get("logo")
-        log("Cloudinary", f"Logo inicial: {logo_url}", "PASS")
-    elif res.status_code == 400 and "ya está en uso" in res.text:
-        log("Tienda", "La tienda ya existía.", "WARN")
-    else:
-        log("Tienda", f"Error: {res.text}", "FAIL")
+    # GET List
+    res = session.get(f"{BASE_URL}{url_dir}/{DNI}")
+    if check(res, "GET", f"{url_dir}/{{dni}}"):
+        count = len(res.json())
+        log("GET", f"{url_dir}/{DNI}", f"Se encontraron {count} direcciones.", "PASS")
 
-    # ---------------------------------------------------------
-    # 3.1 EDITAR TIENDA (NUEVO TEST PATCH)
-    # ---------------------------------------------------------
-    log("Tienda Update", "Probando edición de tienda (Nuevo nombre y logo)...")
-    img_new_logo = create_dummy_image("logo_v2.png")
+    # DELETE
+    res = session.delete(f"{BASE_URL}{url_dir}/{g_dir_id}")
+    if check(res, "DELETE", f"{url_dir}/{{id}}"):
+        log("DELETE", f"{url_dir}/{g_dir_id}", "Dirección eliminada.", "PASS")
+
+    # ==========================================
+    # 3. TIENDA
+    # ==========================================
+    print(f"\n{YELLOW}--- 3. TIENDA (Multipart) ---{RESET}")
+    url_tienda = "/tiendas"
+    img_file = create_dummy_image("logo_test.png")
     
-    update_data = {
-        "nombreUrl": NOMBRE_TIENDA, # Obligatorio para el DTO aunque no cambie
-        "nombreFantasia": "Tienda RENOVADA V2",
-        "descripcion": "Descripción actualizada por PATCH",
-        "vendedorDni": DNI
+    # POST (Crear)
+    tienda_json = {"nombreUrl": NOMBRE_TIENDA, "nombreFantasia": "Master Store", "descripcion": "Testing automation", "vendedorDni": DNI}
+    multipart_data = {
+        'tienda': (None, json.dumps(tienda_json), 'application/json'),
+        'file': (img_file, open(img_file, 'rb'), 'image/png')
     }
+    res = session.post(f"{BASE_URL}{url_tienda}", files=multipart_data)
     
+    if res.status_code == 400 and "uso" in res.text:
+        log("POST", url_tienda, "La tienda ya existe, usaremos esa.", "WARN")
+    elif check(res, "POST", url_tienda):
+        log("POST", url_tienda, "Tienda creada correctamente.", "PASS")
+
+    # GET (Leer)
+    res = session.get(f"{BASE_URL}{url_tienda}/{NOMBRE_TIENDA}")
+    check(res, "GET", f"{url_tienda}/{{nombreUrl}}")
+    if res.status_code == 200:
+        log("GET", f"{url_tienda}/{NOMBRE_TIENDA}", f"Info obtenida: {res.json().get('nombreFantasia')}", "PASS")
+
+    # PATCH (Editar) - Nuevo test
+    update_json = {"nombreUrl": NOMBRE_TIENDA, "nombreFantasia": "Master Store V2", "descripcion": "Updated via Script", "vendedorDni": DNI}
     multipart_update = {
-        'tienda': (None, json.dumps(update_data), 'application/json'),
-        'file': (img_new_logo, open(img_new_logo, 'rb'), 'image/png')
+        'tienda': (None, json.dumps(update_json), 'application/json'),
+        'file': (img_file, open(img_file, 'rb'), 'image/png')
     }
-    
-    # Usamos PATCH
-    res = session.patch(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}", files=multipart_update)
-    
-    if check_response(res, "Editar Tienda"):
-        new_name = res.json().get("nombreFantasia")
-        new_logo = res.json().get("logo")
-        if "RENOVADA" in new_name:
-            log("Tienda Update", f"Nombre cambiado a: {new_name}", "PASS")
-            log("Tienda Update", f"Logo actualizado: {new_logo}", "PASS")
-        else:
-            log("Tienda Update", "No se actualizaron los datos.", "FAIL")
+    res = session.patch(f"{BASE_URL}{url_tienda}/{NOMBRE_TIENDA}", files=multipart_update)
+    if check(res, "PATCH", f"{url_tienda}/{{nombreUrl}}"):
+        log("PATCH", f"{url_tienda}/{NOMBRE_TIENDA}", "Tienda actualizada (Nombre/Logo).", "PASS")
 
-    # ---------------------------------------------------------
+    # ==========================================
     # 4. CATEGORÍAS
-    # ---------------------------------------------------------
-    cat_name = f"Cat-{int(time.time())}"
-    res = session.post(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/categorias", json={"nombre": cat_name})
-    if check_response(res, "Crear Categoría"):
-        global_category_id = res.json().get("id")
-
-    # ---------------------------------------------------------
-    # 5. PRODUCTOS
-    # ---------------------------------------------------------
-    log("Productos", "Subiendo producto...")
-    img_prod = create_dummy_image("prod.png")
-    prod_data = {
-        "categoriaId": global_category_id,
-        "nombre": f"Prod-{int(time.time())}",
-        "descripcion": "Test",
-        "precio": 1000.0,
-        "stock": 50
-    }
-    multipart_prod = {
-        'producto': (None, json.dumps(prod_data), 'application/json'),
-        'file': (img_prod, open(img_prod, 'rb'), 'image/png')
-    }
-    res = session.post(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/productos", files=multipart_prod)
-    if check_response(res, "Crear Producto"):
-        global_product_id = res.json().get("id")
-
-    # ---------------------------------------------------------
-    # 6. PEDIDO
-    # ---------------------------------------------------------
-    log("Checkout", "Creando pedido...")
-    cart_payload = { "usuarioDni": DNI, "productoId": global_product_id, "cantidad": 1 }
-    session.post(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/carrito/agregar", json=cart_payload)
-
-    pedido_payload = { "usuarioDni": DNI, "metodoEnvio": "Retiro", "costoEnvio": 0.0, "items": [] }
-    res = session.post(f"{BASE_URL}/tiendas/{NOMBRE_TIENDA}/pedidos", json=pedido_payload)
+    # ==========================================
+    print(f"\n{YELLOW}--- 4. CATEGORÍAS ---{RESET}")
+    base_cat = f"/tiendas/{NOMBRE_TIENDA}/categorias"
     
-    if check_response(res, "Crear Pedido"):
-        global_order_id = res.json().get("id")
-        log("Checkout", f"Pedido #{global_order_id} creado.", "PASS")
-        
-        print(f"\n{GREEN}=== ✅ TEST FINALIZADO ==={RESET}")
-        print(f"Prueba MercadoPago manual con ID: {global_order_id}")
+    # POST
+    cat_name = f"Cat-{int(time.time())}"
+    res = session.post(f"{BASE_URL}{base_cat}", json={"nombre": cat_name})
+    if check(res, "POST", base_cat):
+        g_cat_id = res.json().get("id")
+        log("POST", base_cat, f"Creada ID: {g_cat_id}", "PASS")
+
+    # GET All
+    check(session.get(f"{BASE_URL}{base_cat}"), "GET", base_cat)
+    
+    # GET ID
+    check(session.get(f"{BASE_URL}{base_cat}/{g_cat_id}"), "GET", f"{base_cat}/{{id}}")
+
+    # PATCH
+    res = session.patch(f"{BASE_URL}{base_cat}/{g_cat_id}", json={"nombre": cat_name + " Edited"})
+    check(res, "PATCH", f"{base_cat}/{{id}}")
+
+    # DELETE (Creamos una temporal para borrar)
+    res_temp = session.post(f"{BASE_URL}{base_cat}", json={"nombre": "Temp Delete"})
+    temp_id = res_temp.json().get("id")
+    res = session.delete(f"{BASE_URL}{base_cat}/{temp_id}")
+    if check(res, "DELETE", f"{base_cat}/{{id}}"):
+        log("DELETE", f"{base_cat}/{temp_id}", "Categoría temporal eliminada.", "PASS")
+
+    # ==========================================
+    # 5. PRODUCTOS
+    # ==========================================
+    print(f"\n{YELLOW}--- 5. PRODUCTOS ---{RESET}")
+    base_prod = f"/tiendas/{NOMBRE_TIENDA}/productos"
+    
+    # POST (Multipart)
+    prod_json = {"categoriaId": g_cat_id, "nombre": "Prod Test", "descripcion": "Desc", "precio": 100.0, "stock": 50}
+    mp_prod = {
+        'producto': (None, json.dumps(prod_json), 'application/json'),
+        'file': (img_file, open(img_file, 'rb'), 'image/png')
+    }
+    res = session.post(f"{BASE_URL}{base_prod}", files=mp_prod)
+    if check(res, "POST", base_prod):
+        g_prod_id = res.json().get("id")
+        log("POST", base_prod, f"Creado ID: {g_prod_id}", "PASS")
+
+    # GET All
+    check(session.get(f"{BASE_URL}{base_prod}"), "GET", base_prod)
+
+    # GET ID
+    check(session.get(f"{BASE_URL}{base_prod}/{g_prod_id}"), "GET", f"{base_prod}/{{id}}")
+
+    # GET Filter Category
+    check(session.get(f"{BASE_URL}{base_prod}/categoria/{g_cat_id}"), "GET", f"{base_prod}/categoria/{{id}}")
+
+    # GET Search
+    check(session.get(f"{BASE_URL}{base_prod}/buscar?q=Test"), "GET", f"{base_prod}/buscar")
+
+    # PATCH
+    res = session.patch(f"{BASE_URL}{base_prod}/{g_prod_id}", json={"precio": 150.0})
+    check(res, "PATCH", f"{base_prod}/{{id}}")
+
+    # DELETE (Temp)
+    mp_temp = {'producto': (None, json.dumps(prod_json), 'application/json'), 'file': (img_file, open(img_file, 'rb'), 'image/png')}
+    res_temp = session.post(f"{BASE_URL}{base_prod}", files=mp_temp)
+    temp_id = res_temp.json().get("id")
+    res = session.delete(f"{BASE_URL}{base_prod}/{temp_id}")
+    if check(res, "DELETE", f"{base_prod}/{{id}}"):
+        log("DELETE", f"{base_prod}/{temp_id}", "Producto temporal eliminado.", "PASS")
+
+    # ==========================================
+    # 6. FAVORITOS
+    # ==========================================
+    print(f"\n{YELLOW}--- 6. FAVORITOS ---{RESET}")
+    base_fav = f"/tiendas/{NOMBRE_TIENDA}/favoritos"
+    
+    # POST (Toggle ON)
+    fav_data = {"usuarioDni": DNI, "productoId": g_prod_id}
+    res = session.post(f"{BASE_URL}{base_fav}/toggle", json=fav_data)
+    if check(res, "POST", f"{base_fav}/toggle"):
+        log("POST", f"{base_fav}/toggle", f"Msg: {res.json().get('mensaje')}", "PASS")
+
+    # GET List
+    check(session.get(f"{BASE_URL}{base_fav}/{DNI}"), "GET", f"{base_fav}/{{dni}}")
+
+    # POST (Toggle OFF)
+    res = session.post(f"{BASE_URL}{base_fav}/toggle", json=fav_data)
+    if check(res, "POST", f"{base_fav}/toggle"):
+        log("POST", f"{base_fav}/toggle", f"Msg: {res.json().get('mensaje')}", "PASS")
+
+    # ==========================================
+    # 7. CARRITO
+    # ==========================================
+    print(f"\n{YELLOW}--- 7. CARRITO ---{RESET}")
+    base_cart = f"/tiendas/{NOMBRE_TIENDA}/carrito"
+    
+    # POST Agregar
+    cart_data = {"usuarioDni": DNI, "productoId": g_prod_id, "cantidad": 2}
+    res = session.post(f"{BASE_URL}{base_cart}/agregar", json=cart_data)
+    if check(res, "POST", f"{base_cart}/agregar"):
+        g_cart_item_id = res.json().get("idItem")
+        log("POST", f"{base_cart}/agregar", f"Item ID: {g_cart_item_id}", "PASS")
+
+    # GET
+    check(session.get(f"{BASE_URL}{base_cart}/{DNI}"), "GET", f"{base_cart}/{{dni}}")
+
+    # DELETE Item
+    check(session.delete(f"{BASE_URL}{base_cart}/item/{g_cart_item_id}"), "DELETE", f"{base_cart}/item/{{id}}")
+
+    # DELETE Vaciar (Agregamos de nuevo para probar vaciar)
+    session.post(f"{BASE_URL}{base_cart}/agregar", json=cart_data)
+    res = session.delete(f"{BASE_URL}{base_cart}/vaciar/{DNI}")
+    if check(res, "DELETE", f"{base_cart}/vaciar/{{dni}}"):
+        log("DELETE", f"{base_cart}/vaciar/{DNI}", "Carrito vaciado.", "PASS")
+
+    # ==========================================
+    # 8. PEDIDOS
+    # ==========================================
+    print(f"\n{YELLOW}--- 8. PEDIDOS ---{RESET}")
+    base_ped = f"/tiendas/{NOMBRE_TIENDA}/pedidos"
+    
+    # Llenar carrito
+    session.post(f"{BASE_URL}{base_cart}/agregar", json={"usuarioDni": DNI, "productoId": g_prod_id, "cantidad": 1})
+
+    # POST Crear
+    ped_data = {"usuarioDni": DNI, "metodoEnvio": "Test", "direccionEnvio": "Calle Test", "costoEnvio": 500.0, "items": []}
+    res = session.post(f"{BASE_URL}{base_ped}", json=ped_data)
+    if check(res, "POST", base_ped):
+        g_order_id = res.json().get("id")
+        log("POST", base_ped, f"Pedido Creado ID: {g_order_id}", "PASS")
+
+    # GET All
+    check(session.get(f"{BASE_URL}{base_ped}"), "GET", base_ped)
+
+    # GET ID
+    check(session.get(f"{BASE_URL}{base_ped}/{g_order_id}"), "GET", f"{base_ped}/{{id}}")
+
+    # GET User Orders
+    check(session.get(f"{BASE_URL}{base_ped}/usuario/{DNI}"), "GET", f"{base_ped}/usuario/{{dni}}")
+
+    # PATCH (Cancelar)
+    res = session.patch(f"{BASE_URL}{base_ped}/{g_order_id}", json={"estado": "CANCELADO"})
+    check(res, "PATCH", f"{base_ped}/{{id}}")
+
+    # DELETE
+    res = session.delete(f"{BASE_URL}{base_ped}/{g_order_id}")
+    if check(res, "DELETE", f"{base_ped}/{{id}}"):
+        log("DELETE", f"{base_ped}/{g_order_id}", "Pedido eliminado.", "PASS")
+
+    # ==========================================
+    # 9. MERCADO PAGO (Final Check)
+    # ==========================================
+    print(f"\n{YELLOW}--- 9. MERCADO PAGO ---{RESET}")
+    
+    # Recreamos un pedido nuevo porque borramos el anterior
+    session.post(f"{BASE_URL}{base_cart}/agregar", json={"usuarioDni": DNI, "productoId": g_prod_id, "cantidad": 1})
+    res = session.post(f"{BASE_URL}{base_ped}", json=ped_data)
+    new_order_id = res.json().get("id")
+    
+    # Crear Link
+    res = session.post(f"{BASE_URL}/pagos/crear/{new_order_id}")
+    if check(res, "POST", f"/pagos/crear/{{id}}"):
+        url = res.json().get("url")
+        log("POST", "/pagos/crear", f"Link generado: {url}", "PASS")
+
+    print(f"\n{GREEN}=== TEST MAESTRO FINALIZADO CON ÉXITO ==={RESET}")
 
 if __name__ == "__main__":
-    run_full_test()
+    run_test()

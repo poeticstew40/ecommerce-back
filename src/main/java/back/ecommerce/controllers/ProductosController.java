@@ -35,8 +35,10 @@ public class ProductosController {
 
     @GetMapping
     public ResponseEntity<List<ProductosResponse>> getAllByTienda(
-            @PathVariable String nombreTienda) {
-        return ResponseEntity.ok(this.productosService.readAllByTienda(nombreTienda));
+            @PathVariable String nombreTienda,
+            @RequestParam(required = false) String sort) {
+        
+        return ResponseEntity.ok(this.productosService.readAllByTienda(nombreTienda, sort));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

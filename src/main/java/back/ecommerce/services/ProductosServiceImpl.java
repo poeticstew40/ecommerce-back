@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -68,8 +69,28 @@ public class ProductosServiceImpl implements ProductosService {
     }
 
     @Override
-    public List<ProductosResponse> readAllByTienda(String nombreTienda) {
-        return productosRepository.findByTiendaNombreUrl(nombreTienda)
+    public List<ProductosResponse> readAllByTienda(String nombreTienda, String orden) {
+        
+        Sort sort = Sort.by("id").descending();
+
+        if (orden != null) {
+            switch (orden) {
+                case "precio_asc":
+                    sort = Sort.by("precio").ascending();
+                    break;
+                case "precio_desc":
+                    sort = Sort.by("precio").descending();
+                    break;
+                case "nombre_asc":
+                    sort = Sort.by("nombre").ascending();
+                    break;
+                case "nombre_desc":
+                    sort = Sort.by("nombre").descending();
+                    break;
+            }
+        }
+
+        return productosRepository.findByTiendaNombreUrl(nombreTienda, sort)
                 .stream()
                 .map(this::convertirEntidadAResponse)
                 .collect(Collectors.toList());
@@ -149,4 +170,6 @@ public class ProductosServiceImpl implements ProductosService {
         
         return response;
     }
+
+    
 }
