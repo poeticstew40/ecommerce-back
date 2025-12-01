@@ -1,50 +1,106 @@
-## Documentación de la API - E-commerce Multitienda
+# Documentación del Proyecto - Backend E-commerce Multitienda
+
+Este repositorio contiene el código fuente del backend para la plataforma de E-commerce. A continuación se detallan las instrucciones para la configuración del entorno de desarrollo local y la documentación general de la API.
+
+## Guía de Configuración y Ejecución Local
+
+Para ejecutar este proyecto en un entorno local, es necesario configurar las variables de entorno para garantizar la seguridad de las credenciales y la correcta conexión con los servicios externos.
+
+### Prerrequisitos
+* **Java JDK 21**
+* **Maven** (Apache Maven 3.8 o superior)
+
+### Instrucciones de Instalación
+
+**1. Clonar el repositorio**
+Descargue el código fuente utilizando el siguiente comando en su terminal:
+
+```bash
+git clone <URL_DEL_REPOSITORIO>
+cd ecommerce
+```
+
+**2. Configuración de Variables de Entorno (.env)**
+Por motivos de seguridad, las credenciales sensibles no se incluyen en el repositorio. Para ejecutar la aplicación, debe crear un archivo llamado `.env` en la raíz del proyecto (al mismo nivel que el archivo `pom.xml`).
+
+Copie el siguiente contenido en su archivo `.env`. Este ejemplo está preconfigurado para utilizar una base de datos en memoria (H2) para facilitar la corrección sin necesidad de instalar MySQL localmente:
+
+```properties
+#------------------ Solicitar credenciales reales ------------------
+
+# Configuración de Base de Datos (Por defecto: H2 en memoria)
+JDBC_DATABASE_URL=jdbc:h2:mem:ecommerce_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+JDBC_DATABASE_USERNAME=sa
+JDBC_DATABASE_PASSWORD=password
+
+# Integraciones y Servicios Externos
+RESEND_API_KEY=re_123456789
+MP_ACCESS_TOKEN=TEST-00000000-0000-0000-0000-000000000000
+JWT_SECRET_KEY=clave_secreta_para_desarrollo_local
+
+# Configuración de Cloudinary (Gestión de Imágenes)
+CLOUDINARY_CLOUD_NAME=nombre_cloud
+CLOUDINARY_API_KEY=000000000
+CLOUDINARY_API_SECRET=secreto_api
+
+# URLs de la Aplicación
+APP_BACKEND_URL=http://localhost:8080
+APP_FRONTEND_URL=http://localhost:5173
+```
+
+**3. Ejecución de la Aplicación**
+Una vez configurado el archivo `.env`, inicie la aplicación utilizando Maven. El sistema detectará automáticamente el perfil de desarrollo.
+
+```bash
+mvn spring-boot:run
+```
+
+**4. Verificación**
+Si la aplicación inició correctamente, podrá acceder a:
+
+* **Documentación Interactiva (Swagger):** http://localhost:8080/swagger-ui/index.html
+* **Consola de Base de Datos (H2):** http://localhost:8080/h2
 
 ---
 
-### Entornos y Documentación
+## Documentación General de la API
 
-* **URL Base de la API:** https://ecommerce-back-2uxy.onrender.com
-* **Documentación Interactiva (Swagger UI):** https://ecommerce-back-2uxy.onrender.com/swagger-ui/index.html
-    * **Nota para Frontend:** Esta URL proporciona una interfaz gráfica para probar y entender el funcionamiento de cada método (`GET`, `POST`, etc.) antes de la implementación en el código del frontend.
+### Información de Entornos
 
----
+* **URL Base (Google Cloud)(Producción):**`https://ecommerce-back-1018928649112.us-central1.run.app`
+* **Documentación Swagger UI(Google Cloud):** `https://ecommerce-back-1018928649112.us-central1.run.app/swagger-ui/index.html`
+
+* **URL Base (Render)(Producción):** `https://ecommerce-back-2uxy.onrender.com`
+* **Documentación Swagger UI(Render):** `https://ecommerce-back-2uxy.onrender.com/swagger-ui/index.html`
+
+> **Nota para el equipo de Frontend:** Se recomienda utilizar Swagger UI para probar los endpoints y comprender la estructura de los objetos JSON requeridos antes de la integración.
 
 ### 1. Autenticación y Seguridad (JWT)
+El sistema implementa seguridad basada en JSON Web Tokens (JWT).
 
-La mayoría de los *endpoints* están protegidos y requieren un **JSON Web Token (JWT)** para la autenticación.
+* **Obtención del Token:** Al registrarse (`/api/auth/register`) o iniciar sesión (`/api/auth/login`), la API devolverá un token.
+* **Uso del Token:** Para acceder a rutas protegidas, este token debe enviarse en el encabezado (Header) `Authorization` de cada petición HTTP con el prefijo `Bearer`.
+* **Formato:** `Authorization: Bearer <token_jwt>`
 
-1.  **Registro o Login:** Utiliza el *endpoint* `/api/auth/register` (creación) o `/api/auth/login` (inicio de sesión) en el **Auth Controller**.
-2.  **Obtención del Token:** El *token* JWT se devuelve en la respuesta JSON.
-3.  **Autorización:** El *token* debe incluirse en el *header* de cada solicitud protegida, usando el formato: **`Bearer <token>`**.
-    * Si se recibe un error **403 Forbidden**, se debe verificar la validez del token y la correcta inclusión del prefijo `Bearer `.
+### 2. Arquitectura Multitienda
+La plataforma soporta múltiples tiendas operando simultáneamente. Esto se gestiona mediante un identificador único o "slug" en la URL.
 
----
+* **Estructura del Endpoint:** `/api/tiendas/{nombreTienda}/...`
+* **Importante:** Las operaciones sobre productos, categorías o pedidos deben coincidir con la tienda especificada en la URL. Intentar acceder a recursos de una tienda A usando la URL de la tienda B resultará en un error de seguridad.
 
-### 2. Arquitectura Multitienda (Slug)
+### 3. Gestión de Imágenes
+Para la carga de imágenes en Productos y Tiendas, la API utiliza `multipart/form-data`.
 
-El sistema utiliza un identificador único de tienda (**slug** o `nombreTienda`) en la URL para acceder a recursos específicos de esa tienda.
-
-* **Patrón de URL:** `/api/tiendas/{nombreTienda}/...`
-* **Restricción:** El acceso a recursos de una tienda con el slug de otra resultará en un error de seguridad. Es crucial usar el `nombreUrl` correcto.
-
----
-
-### 3. Gestión de Imágenes (Multipart File)
-
-Los *endpoints* de creación (`POST`) y actualización (`PATCH`) que manejan imágenes (`Productos` y `Tiendas`) consumen el tipo de contenido **`multipart/form-data`**.
-
-* **Estructura de la Petición:**
-    * **`file`:** Contiene la imagen como archivo binario.
-    * **`producto`** (o **`tienda`**): Contiene los datos no binarios en formato **`application/json`**.
-
----
+* El archivo de imagen se debe enviar en el campo clave `file`.
+* Los datos del objeto (JSON) se deben enviar en el campo clave `producto` o `tienda` con el `Content-Type` configurado como `application/json`.
 
 ### 4. Flujo de Compra
+El ciclo de vida de una compra sigue estos pasos estrictos:
 
-1.  **Carrito:** Agregar ítems mediante `POST` a `/api/tiendas/{nombre}/carrito/agregar`.
-2.  **Checkout (Crear Pedido):** Enviar `POST` a `/api/tiendas/{nombre}/pedidos`. Si la lista de ítems en el *Request Body* es vacía (`[]`), el sistema procesa automáticamente el contenido del carrito del usuario.
-3.  **Pago (Mercado Pago):** Usar el ID del pedido generado para llamar a `POST` a `/api/pagos/crear/{id}`. Esto devolverá la URL de Mercado Pago.
+1. **Gestión del Carrito:** Los productos se añaden al carrito del usuario mediante una petición POST al endpoint `/api/tiendas/{nombre}/carrito/agregar`. Este carrito persiste en la base de datos.
+2. **Generación del Pedido (Checkout):** Para finalizar la compra, se envía una petición POST a `/api/tiendas/{nombre}/pedidos`.
+3. **Automatización:** Si el cuerpo de la petición envía una lista de ítems vacía (`[]`), el backend procesará automáticamente todos los productos que el usuario tenga actualmente en su carrito y vaciará el carrito tras crear el pedido.
+4. **Procesamiento del Pago:** Con el ID del pedido generado en el paso anterior, se llama a `/api/pagos/crear/{id}`. Esto retornará la URL de la pasarela de Mercado Pago para que el usuario realice el pago efectivo.
 
 ---
 

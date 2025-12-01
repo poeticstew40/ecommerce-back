@@ -22,12 +22,12 @@ public class OrderCleanupService {
     private final PedidosRepository pedidosRepository;
     private final ProductosRepository productosRepository;
 
-    @Scheduled(fixedRate = 60000)
+    @Scheduled(fixedRate = 600000)
     @Transactional
     public void cancelarPedidosExpirados() {
         log.info("[CRON JOB] Iniciando limpieza de pedidos expirados...");
         
-        LocalDateTime tiempoLimite = LocalDateTime.now().minusMinutes(10);
+        LocalDateTime tiempoLimite = LocalDateTime.now().minusMinutes(20);
         List<PedidosEntity> pedidosViejos = pedidosRepository.findByEstadoAndFechaPedidoBefore("PENDIENTE", tiempoLimite);
 
         if (pedidosViejos.isEmpty()) {
