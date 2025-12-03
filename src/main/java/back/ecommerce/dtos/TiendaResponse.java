@@ -1,5 +1,6 @@
 package back.ecommerce.dtos;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,4 +18,5 @@ public class TiendaResponse {
     private String descripcion;
     private Long vendedorDni;
     private String vendedorNombre;
+    private List<String> banners;
 }

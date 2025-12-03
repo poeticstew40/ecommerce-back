@@ -1,5 +1,6 @@
 package back.ecommerce.dtos;
 
+import java.util.List;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -25,4 +26,6 @@ public class TiendaRequest {
 
     @NotNull(message = "El DNI del vendedor es obligatorio")
     private Long vendedorDni;
+
+    private List<String> banners;
 }

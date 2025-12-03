@@ -1,5 +1,6 @@
 package back.ecommerce.dtos;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,5 +18,5 @@ public class ProductosResponse {
     private Double precio;
     private Integer stock;
     private String categoriaNombre;
-    private String imagen;
+    private List<String> imagenes;
 }

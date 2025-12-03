@@ -2,9 +2,10 @@ package back.ecommerce.entities;
 
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
-
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -36,6 +37,11 @@ public class TiendaEntity {
     private String nombreFantasia;
     private String logo;
     private String descripcion;
+
+    @ElementCollection
+    @CollectionTable(name = "tienda_banners", joinColumns = @JoinColumn(name = "tienda_id"))
+    @Column(name = "banner_url")
+    private List<String> banners;
 
     @OneToOne
     @JoinColumn(name = "vendedor_dni")

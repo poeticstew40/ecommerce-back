@@ -50,18 +50,16 @@ public class ProductosController {
             @PathVariable String nombreTienda,
             @Parameter(schema = @Schema(type = "string", format = "json"))
             @RequestPart("producto") String productoStr, 
-            @RequestPart(value = "file", required = false) MultipartFile file) throws JsonProcessingException {
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) throws JsonProcessingException {
 
         ProductosRequest request = objectMapper.readValue(productoStr, ProductosRequest.class);
-
-        final var producto = this.productosService.create(nombreTienda, request, file);
+        final var producto = this.productosService.create(nombreTienda, request, files);
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentContextPath()
                 .path("/tienda/{nombreTienda}/productos/{id}")
                 .buildAndExpand(nombreTienda, producto.getId())
                 .toUri();
-
         return ResponseEntity.created(location).body(producto);
     }
 
@@ -86,12 +84,20 @@ public class ProductosController {
         return ResponseEntity.ok(this.productosService.readById(id));
     }
 
-    @PatchMapping("/{id}")
+    @PatchMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProductosResponse> updateProductos(
             @PathVariable String nombreTienda,
             @PathVariable Long id,
-            @RequestBody ProductosRequest request) {
-        return ResponseEntity.ok(this.productosService.update(id, request));
+            @Parameter(schema = @Schema(type = "string", format = "json"))
+            @RequestPart(value = "producto", required = false) String productoStr,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) throws JsonProcessingException {
+        
+        ProductosRequest request = new ProductosRequest();
+        if (productoStr != null) {
+            request = objectMapper.readValue(productoStr, ProductosRequest.class);
+        }
+        
+        return ResponseEntity.ok(this.productosService.update(id, request, files));
     }
 
     @DeleteMapping("/{id}")

@@ -29,7 +29,6 @@ public class FavoritoServiceImpl implements FavoritoService {
         var producto = productosRepository.findById(request.getProductoId())
                 .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con ID: " + request.getProductoId()));
 
-        // Validación: El producto debe ser de la tienda que se está navegando
         if (!producto.getTienda().getNombreUrl().equals(nombreTienda)) {
             throw new IllegalArgumentException("Error de Seguridad: El producto '" + producto.getNombre() + 
                                                "' pertenece a la tienda '" + producto.getTienda().getNombreUrl() + 
@@ -43,7 +42,7 @@ public class FavoritoServiceImpl implements FavoritoService {
 
         var usuario = usuariosRepository.findById(request.getUsuarioDni())
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado con DNI: " + request.getUsuarioDni()));
-
+        
         var favorito = new FavoritoEntity();
         favorito.setUsuario(usuario);
         favorito.setProducto(producto);
@@ -61,7 +60,9 @@ public class FavoritoServiceImpl implements FavoritoService {
                         .id(fav.getId())
                         .productoId(fav.getProducto().getId())
                         .nombreProducto(fav.getProducto().getNombre())
-                        .imagen(fav.getProducto().getImagen())
+                        .imagen(fav.getProducto().getImagenes() != null && !fav.getProducto().getImagenes().isEmpty() 
+                                ? fav.getProducto().getImagenes().get(0) 
+                                : null)
                         .precio(fav.getProducto().getPrecio())
                         .build())
                 .collect(Collectors.toList());

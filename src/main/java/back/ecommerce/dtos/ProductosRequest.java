@@ -1,5 +1,6 @@
 package back.ecommerce.dtos;
 
+import java.util.List;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -35,4 +36,6 @@ public class ProductosRequest {
     @NotNull(message = "El stock es obligatorio")
     @Min(value = 0, message = "El stock no puede ser negativo")
     private Integer stock;
+    
+    private List<String> imagenes;
 }

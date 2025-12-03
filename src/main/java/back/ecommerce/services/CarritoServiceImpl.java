@@ -32,7 +32,6 @@ public class CarritoServiceImpl implements CarritoService {
         var producto = productosRepository.findById(request.getProductoId())
                 .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con ID: " + request.getProductoId()));
 
-        // Validación: El producto debe pertenecer a la tienda actual
         if (!producto.getTienda().getNombreUrl().equals(nombreTienda)) {
             throw new IllegalArgumentException("Error de Seguridad: El producto '" + producto.getNombre() + 
                                                "' pertenece a la tienda '" + producto.getTienda().getNombreUrl() + 
@@ -88,11 +87,16 @@ public class CarritoServiceImpl implements CarritoService {
 
     private CarritoResponse convertirAResponse(ItemCarritoEntity entity) {
         var producto = entity.getProducto();
+        
+        String imagenPrincipal = (producto.getImagenes() != null && !producto.getImagenes().isEmpty()) 
+                                 ? producto.getImagenes().get(0) 
+                                 : null;
+
         return CarritoResponse.builder()
                 .idItem(entity.getId())
                 .productoId(producto.getId())
                 .nombreProducto(producto.getNombre())
-                .imagenProducto(producto.getImagen())
+                .imagenProducto(imagenPrincipal)
                 .precioUnitario(producto.getPrecio())
                 .cantidad(entity.getCantidad())
                 .subtotal(producto.getPrecio() * entity.getCantidad())

@@ -1,12 +1,13 @@
 package back.ecommerce.services;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
 import back.ecommerce.dtos.TiendaRequest;
 import back.ecommerce.dtos.TiendaResponse;
 import back.ecommerce.entities.Rol;
@@ -30,9 +31,10 @@ public class TiendaServiceImpl implements TiendaService {
     private String frontendUrl;
 
     @Override
-    public TiendaResponse create(TiendaRequest request, MultipartFile file) {
+    public TiendaResponse create(TiendaRequest request, MultipartFile logoFile, List<MultipartFile> bannerFiles) {
         var vendedor = usuariosRepository.findById(request.getVendedorDni())
                 .orElseThrow(() -> new IllegalArgumentException("Vendedor no encontrado con DNI: " + request.getVendedorDni()));
+        
         UsuariosEntity usuarioLogueado = (UsuariosEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         if (!vendedor.getEmail().equals(usuarioLogueado.getEmail())) {
@@ -52,14 +54,29 @@ public class TiendaServiceImpl implements TiendaService {
         }
 
         String urlLogo = null;
-        if (file != null && !file.isEmpty()) {
-            urlLogo = cloudinaryService.uploadFile(file);
+        if (logoFile != null && !logoFile.isEmpty()) {
+            urlLogo = cloudinaryService.uploadFile(logoFile);
+        }
+        
+        List<String> banners = new ArrayList<>();
+        if (bannerFiles != null && !bannerFiles.isEmpty()) {
+            for (MultipartFile file : bannerFiles) {
+                if (!file.isEmpty()) {
+                    banners.add(cloudinaryService.uploadFile(file));
+                }
+            }
+        }
+        
+        if (request.getBanners() != null) {
+            banners.addAll(request.getBanners());
         }
 
         var entity = new TiendaEntity();
         BeanUtils.copyProperties(request, entity);
         entity.setLogo(urlLogo);
+        entity.setBanners(banners);
         entity.setVendedor(vendedor);
+
         var tiendaGuardada = tiendaRepository.save(entity);
 
         if (vendedor.getRol() != Rol.VENDEDOR) {
@@ -68,8 +85,6 @@ public class TiendaServiceImpl implements TiendaService {
         }
 
         String linkTienda = frontendUrl + "/tienda/" + tiendaGuardada.getNombreUrl();
-        
-        // HTML Template para Tienda Creada
         String html = """
             <html>
             <body style='font-family: Arial, sans-serif; color: #333; background-color: #f4f4f4; padding: 20px;'>
@@ -81,11 +96,9 @@ public class TiendaServiceImpl implements TiendaService {
                         <p>Hola <strong>%s</strong>,</p>
                         <p>Felicitaciones, ya creamos tu espacio <strong>%s</strong> en nuestra plataforma.</p>
                         <p>Ahora podés empezar a cargar productos y vender.</p>
-                        
                         <div style='text-align: center; margin: 30px 0;'>
                             <a href='%s' style='background-color: #4F46E5; color: white; padding: 15px 30px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px;'>Ver mi Tienda</a>
                         </div>
-                        
                         <p style='text-align: center; color: #666;'>Tu URL pública es: <br> <a href='%s'>%s</a></p>
                     </div>
                 </div>
@@ -94,26 +107,34 @@ public class TiendaServiceImpl implements TiendaService {
             """.formatted(vendedor.getNombre(), tiendaGuardada.getNombreFantasia(), linkTienda, linkTienda, linkTienda);
 
         emailService.enviarCorreo(vendedor.getEmail(), "Tu tienda está lista!", html);
-        
+         
         return convertirEntidadAResponse(tiendaGuardada);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public TiendaResponse readByNombreUrl(String nombreUrl) {
         var entity = tiendaRepository.findByNombreUrl(nombreUrl)
                 .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreUrl));
+        
+        entity.getBanners().size(); 
+        
         return convertirEntidadAResponse(entity);
     }
 
     @Override
+    @Transactional(readOnly = true) 
     public TiendaResponse readByVendedorDni(Long dni) {
         var entity = tiendaRepository.findByVendedorDni(dni)
                 .orElseThrow(() -> new IllegalArgumentException("El vendedor no tiene una tienda asociada"));
+
+        entity.getBanners().size(); 
+
         return convertirEntidadAResponse(entity);
     }
 
     @Override
-    public TiendaResponse update(String nombreUrl, TiendaRequest request, MultipartFile file) {
+    public TiendaResponse update(String nombreUrl, TiendaRequest request, MultipartFile logoFile, List<MultipartFile> bannerFiles) {
         var entity = tiendaRepository.findByNombreUrl(nombreUrl)
                 .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreUrl));
         validarDueño(entity);
@@ -134,10 +155,25 @@ public class TiendaServiceImpl implements TiendaService {
             entity.setNombreUrl(request.getNombreUrl());
         }
         
-        if (file != null && !file.isEmpty()) {
-            String nuevaUrl = cloudinaryService.uploadFile(file);
+        if (logoFile != null && !logoFile.isEmpty()) {
+            String nuevaUrl = cloudinaryService.uploadFile(logoFile);
             entity.setLogo(nuevaUrl);
         }
+
+        List<String> bannersFinales = (request.getBanners() != null) 
+                                      ? new ArrayList<>(request.getBanners()) 
+                                      : new ArrayList<>(entity.getBanners());
+
+        if (bannerFiles != null && !bannerFiles.isEmpty()) {
+            for (MultipartFile file : bannerFiles) {
+                if (!file.isEmpty()) {
+                    String url = cloudinaryService.uploadFile(file);
+                    bannersFinales.add(url);
+                }
+            }
+        }
+        
+        entity.setBanners(bannersFinales);
 
         return convertirEntidadAResponse(tiendaRepository.save(entity));
     }
@@ -169,6 +205,7 @@ public class TiendaServiceImpl implements TiendaService {
                 .descripcion(entity.getDescripcion())
                 .vendedorDni(entity.getVendedor() != null ? entity.getVendedor().getDni() : null)
                 .vendedorNombre(entity.getVendedor() != null ? entity.getVendedor().getNombre() : null)
+                .banners(entity.getBanners())
                 .build();
     }
 }
