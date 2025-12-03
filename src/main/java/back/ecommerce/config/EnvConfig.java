@@ -11,6 +11,7 @@ public class EnvConfig {
         try {
             Dotenv dotenv = Dotenv.configure()
                     .directory("./") // Busca en la raíz del proyecto
+                    .directory("./Backend")
                     .ignoreIfMissing() // En prod (Render/Google) no existe el archivo, así que no falla
                     .load();
 
