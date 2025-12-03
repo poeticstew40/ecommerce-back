@@ -22,7 +22,7 @@ import back.ecommerce.repositories.ProductosRepository;
 import back.ecommerce.repositories.UsuariosRepository;
 
 @SpringBootTest
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @Transactional
 @AutoConfigureTestDatabase(connection= EmbeddedDatabaseConnection.H2)
 public class PedidosControllerTest {
@@ -39,7 +39,6 @@ public class PedidosControllerTest {
 
     @Test
     public void crearPedido_DeberiaCalcularTotalAutomaticamente() throws Exception {
-        // 1. PREPARAR DATOS
         
         UsuariosEntity usuario = new UsuariosEntity();
         usuario.setDni(123123L);
@@ -55,13 +54,11 @@ public class PedidosControllerTest {
 
         ProductosEntity producto = new ProductosEntity();
         producto.setNombre("Producto Test");
-        producto.setPrecio(100.0); // PRECIO = 100
+        producto.setPrecio(100.0); 
         producto.setStock(10);
         producto.setCategoria(categoria);
         ProductosEntity productoGuardado = productosRepository.save(producto);
 
-        // 2. JSON REQUEST
-        // Pedimos 2 unidades (Total debería ser 200.0)
         String jsonRequest = """
             {
                 "usuarioDni": 123123,
@@ -74,13 +71,12 @@ public class PedidosControllerTest {
             }
             """.formatted(productoGuardado.getId()); 
 
-        // 3. EJECUTAR
         mockMvc.perform(post("/pedidos")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(jsonRequest))
-                .andDo(print()) // 👈 MIRA LA CONSOLA ACÁ
+                .andDo(print())
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.total").value(200.0)) // Verifica el cálculo
+                .andExpect(jsonPath("$.total").value(200.0))
                 .andExpect(jsonPath("$.estado").value("PENDIENTE"));
     }
 }

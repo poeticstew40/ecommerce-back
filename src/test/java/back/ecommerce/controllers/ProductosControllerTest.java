@@ -15,7 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import jakarta.transaction.Transactional;
 
 @SpringBootTest
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @Transactional 
 @AutoConfigureTestDatabase(connection= EmbeddedDatabaseConnection.H2)
 public class ProductosControllerTest {
