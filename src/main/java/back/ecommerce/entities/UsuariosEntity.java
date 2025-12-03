@@ -2,7 +2,6 @@ package back.ecommerce.entities;
 
 import java.util.Collection;
 import java.util.List;
-
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -45,6 +44,8 @@ public class UsuariosEntity implements UserDetails {
     @Column(columnDefinition = "boolean default false")
     private boolean emailVerificado;
     private String verificationCode;
+    
+    private String passwordResetToken; 
 
     @OneToMany(mappedBy = "usuario")
     @JsonManagedReference("usuario-pedido")

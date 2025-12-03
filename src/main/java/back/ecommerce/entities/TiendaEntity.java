@@ -1,7 +1,6 @@
 package back.ecommerce.entities;
 
 import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.CascadeType;
@@ -42,15 +41,15 @@ public class TiendaEntity {
     @JoinColumn(name = "vendedor_dni")
     private UsuariosEntity vendedor;
 
-    @OneToMany(mappedBy = "tienda", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "tienda", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference("tienda-producto")
     private List<ProductosEntity> productos;
 
-    @OneToMany(mappedBy = "tienda", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "tienda", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference("tienda-categoria")
     private List<CategoriasEntity> categorias;
 
-    @OneToMany(mappedBy = "tienda")
+    @OneToMany(mappedBy = "tienda", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference("tienda-pedido")
     private List<PedidosEntity> pedidos;
 }

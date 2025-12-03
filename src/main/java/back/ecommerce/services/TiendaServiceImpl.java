@@ -26,14 +26,13 @@ public class TiendaServiceImpl implements TiendaService {
     private final EmailService emailService;
     private final CloudinaryService cloudinaryService;
 
-    @Value("${app.frontend.url}")
+    @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
     @Override
     public TiendaResponse create(TiendaRequest request, MultipartFile file) {
         var vendedor = usuariosRepository.findById(request.getVendedorDni())
                 .orElseThrow(() -> new IllegalArgumentException("Vendedor no encontrado con DNI: " + request.getVendedorDni()));
-
         UsuariosEntity usuarioLogueado = (UsuariosEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         if (!vendedor.getEmail().equals(usuarioLogueado.getEmail())) {
@@ -61,7 +60,6 @@ public class TiendaServiceImpl implements TiendaService {
         BeanUtils.copyProperties(request, entity);
         entity.setLogo(urlLogo);
         entity.setVendedor(vendedor);
-
         var tiendaGuardada = tiendaRepository.save(entity);
 
         if (vendedor.getRol() != Rol.VENDEDOR) {
@@ -69,12 +67,33 @@ public class TiendaServiceImpl implements TiendaService {
             usuariosRepository.save(vendedor);
         }
 
-        String asunto = "Tu tienda '" + tiendaGuardada.getNombreFantasia() + "' está lista!";
-        String mensaje = "Hola " + vendedor.getNombre() + ",\n\n" +
-                         "Felicitaciones, ya creamos tu espacio en nuestra plataforma.\n" +
-                         "Tu URL pública es: " + frontendUrl + "/tienda/" + tiendaGuardada.getNombreUrl();
+        String linkTienda = frontendUrl + "/tienda/" + tiendaGuardada.getNombreUrl();
         
-        emailService.enviarCorreo(vendedor.getEmail(), asunto, mensaje);
+        // HTML Template para Tienda Creada
+        String html = """
+            <html>
+            <body style='font-family: Arial, sans-serif; color: #333; background-color: #f4f4f4; padding: 20px;'>
+                <div style='max-width: 600px; margin: 0 auto; background: white; padding: 0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>
+                    <div style='background-color: #4F46E5; padding: 20px; text-align: center;'>
+                        <h1 style='color: white; margin: 0;'>¡Tu Tienda está Lista! 🚀</h1>
+                    </div>
+                    <div style='padding: 30px;'>
+                        <p>Hola <strong>%s</strong>,</p>
+                        <p>Felicitaciones, ya creamos tu espacio <strong>%s</strong> en nuestra plataforma.</p>
+                        <p>Ahora podés empezar a cargar productos y vender.</p>
+                        
+                        <div style='text-align: center; margin: 30px 0;'>
+                            <a href='%s' style='background-color: #4F46E5; color: white; padding: 15px 30px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px;'>Ver mi Tienda</a>
+                        </div>
+                        
+                        <p style='text-align: center; color: #666;'>Tu URL pública es: <br> <a href='%s'>%s</a></p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.formatted(vendedor.getNombre(), tiendaGuardada.getNombreFantasia(), linkTienda, linkTienda, linkTienda);
+
+        emailService.enviarCorreo(vendedor.getEmail(), "Tu tienda está lista!", html);
         
         return convertirEntidadAResponse(tiendaGuardada);
     }
@@ -87,10 +106,16 @@ public class TiendaServiceImpl implements TiendaService {
     }
 
     @Override
+    public TiendaResponse readByVendedorDni(Long dni) {
+        var entity = tiendaRepository.findByVendedorDni(dni)
+                .orElseThrow(() -> new IllegalArgumentException("El vendedor no tiene una tienda asociada"));
+        return convertirEntidadAResponse(entity);
+    }
+
+    @Override
     public TiendaResponse update(String nombreUrl, TiendaRequest request, MultipartFile file) {
         var entity = tiendaRepository.findByNombreUrl(nombreUrl)
                 .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreUrl));
-
         validarDueño(entity);
 
         if (request.getNombreFantasia() != null && !request.getNombreFantasia().isBlank()) {
@@ -98,6 +123,15 @@ public class TiendaServiceImpl implements TiendaService {
         }
         if (request.getDescripcion() != null) {
             entity.setDescripcion(request.getDescripcion());
+        }
+        
+        if (request.getNombreUrl() != null && !request.getNombreUrl().isBlank() 
+                && !request.getNombreUrl().equals(entity.getNombreUrl())) {
+            
+            if (tiendaRepository.findByNombreUrl(request.getNombreUrl()).isPresent()) {
+                throw new IllegalArgumentException("La URL '" + request.getNombreUrl() + "' ya está en uso por otra tienda.");
+            }
+            entity.setNombreUrl(request.getNombreUrl());
         }
         
         if (file != null && !file.isEmpty()) {
@@ -108,9 +142,16 @@ public class TiendaServiceImpl implements TiendaService {
         return convertirEntidadAResponse(tiendaRepository.save(entity));
     }
 
+    @Override
+    public void delete(String nombreUrl) {
+        var entity = tiendaRepository.findByNombreUrl(nombreUrl)
+                .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreUrl));
+        validarDueño(entity);
+        tiendaRepository.delete(entity);
+    }
+
     private void validarDueño(TiendaEntity tienda) {
         UsuariosEntity usuarioLogueado = (UsuariosEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        
         if (!tienda.getVendedor().getEmail().equals(usuarioLogueado.getEmail())) {
             throw new IllegalArgumentException("ACCESO DENEGADO: No eres el dueño de esta tienda (Email incorrecto).");
         }

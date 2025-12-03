@@ -11,10 +11,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 import back.ecommerce.dtos.AuthRequest;
 import back.ecommerce.dtos.AuthResponse;
+import back.ecommerce.dtos.ChangePasswordRequest;
+import back.ecommerce.dtos.ForgotPasswordRequest;
 import back.ecommerce.dtos.RegisterRequest;
+import back.ecommerce.dtos.ResetPasswordRequest;
 import back.ecommerce.services.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -29,7 +34,7 @@ public class AuthController {
         return ResponseEntity.ok(authService.register(request));
     }
 
-    @PostMapping("/login")
+    @PostMapping("/login") 
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
         return ResponseEntity.ok(authService.login(request));
     }
@@ -37,5 +42,23 @@ public class AuthController {
     @GetMapping("/verify")
     public ResponseEntity<String> verifyAccount(@RequestParam("code") String code) {
         return ResponseEntity.ok(authService.verifyUser(code));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        String mensaje = authService.forgotPassword(request);
+        return ResponseEntity.ok(Map.of("message", mensaje));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        String mensaje = authService.resetPassword(request);
+        return ResponseEntity.ok(Map.of("message", mensaje));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, String>> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        String mensaje = authService.changePassword(request);
+        return ResponseEntity.ok(Map.of("message", mensaje));
     }
 }

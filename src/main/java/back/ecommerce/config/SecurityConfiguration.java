@@ -35,7 +35,7 @@ public class SecurityConfiguration {
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 // Rutas Públicas
-                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/verify", "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
                 .requestMatchers("/api/pagos/webhook").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/tiendas/**").permitAll()
@@ -43,6 +43,7 @@ public class SecurityConfiguration {
                 
                 // Rutas Protegidas
                 .requestMatchers("/api/storage/**").authenticated() 
+                .requestMatchers("/api/auth/change-password").authenticated()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

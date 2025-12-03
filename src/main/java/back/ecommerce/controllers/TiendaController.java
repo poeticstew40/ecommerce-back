@@ -2,9 +2,12 @@ package back.ecommerce.controllers;
 
 import java.net.URI;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping; // Importante
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import back.ecommerce.dtos.TiendaRequest;
 import back.ecommerce.dtos.TiendaResponse;
+import back.ecommerce.entities.UsuariosEntity;
 import back.ecommerce.services.TiendaService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -41,7 +45,6 @@ public class TiendaController {
             @RequestPart(value = "file", required = false) MultipartFile file) throws JsonProcessingException {
         
         TiendaRequest request = objectMapper.readValue(tiendaStr, TiendaRequest.class);
-        
         var tiendaCreada = tiendaService.create(request, file);
         
         URI location = ServletUriComponentsBuilder
@@ -57,6 +60,27 @@ public class TiendaController {
         return ResponseEntity.ok(tiendaService.readByNombreUrl(nombreUrl));
     }
 
+    @GetMapping("/vendedor/{dni}")
+    public ResponseEntity<TiendaResponse> getTiendaByVendedorDni(@PathVariable Long dni) {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        
+        if (principal instanceof String) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build(); 
+        }
+
+        UsuariosEntity usuarioLogueado = (UsuariosEntity) principal;
+        
+        if (!usuarioLogueado.getDni().equals(dni)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        try {
+            return ResponseEntity.ok(tiendaService.readByVendedorDni(dni));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @PatchMapping(value = "/{nombreUrl}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TiendaResponse> actualizarTienda(
             @PathVariable String nombreUrl,
@@ -70,5 +94,11 @@ public class TiendaController {
         }
         
         return ResponseEntity.ok(tiendaService.update(nombreUrl, request, file));
+    }
+  
+    @DeleteMapping("/{nombreUrl}")
+    public ResponseEntity<Void> eliminarTienda(@PathVariable String nombreUrl) {
+        tiendaService.delete(nombreUrl);
+        return ResponseEntity.noContent().build();
     }
 }

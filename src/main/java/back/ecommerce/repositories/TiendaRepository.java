@@ -6,4 +6,5 @@ import back.ecommerce.entities.TiendaEntity;
 
 public interface TiendaRepository extends JpaRepository<TiendaEntity, Long> {
     Optional<TiendaEntity> findByNombreUrl(String nombreUrl);
+    Optional<TiendaEntity> findByVendedorDni(Long vendedorDni);
 }

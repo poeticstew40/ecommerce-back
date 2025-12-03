@@ -7,4 +7,5 @@ import back.ecommerce.entities.UsuariosEntity;
 public interface UsuariosRepository extends JpaRepository<UsuariosEntity, Long>{
     Optional<UsuariosEntity> findByEmail(String email);
     Optional<UsuariosEntity> findByVerificationCode(String verificationCode);
+    Optional<UsuariosEntity> findByPasswordResetToken(String passwordResetToken);
 }
