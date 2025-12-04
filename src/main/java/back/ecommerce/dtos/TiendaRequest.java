@@ -28,4 +28,6 @@ public class TiendaRequest {
     private Long vendedorDni;
 
     private List<String> banners;
+
+    private Double costoEnvio;
 }

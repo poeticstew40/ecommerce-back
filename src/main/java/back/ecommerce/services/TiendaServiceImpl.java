@@ -76,6 +76,7 @@ public class TiendaServiceImpl implements TiendaService {
         entity.setLogo(urlLogo);
         entity.setBanners(banners);
         entity.setVendedor(vendedor);
+        entity.setCostoEnvio(request.getCostoEnvio() != null ? request.getCostoEnvio() : 0.0);
 
         var tiendaGuardada = tiendaRepository.save(entity);
 
@@ -172,6 +173,10 @@ public class TiendaServiceImpl implements TiendaService {
                 }
             }
         }
+
+        if (request.getCostoEnvio() != null) {
+        entity.setCostoEnvio(request.getCostoEnvio());
+}
         
         entity.setBanners(bannersFinales);
 
@@ -206,6 +211,7 @@ public class TiendaServiceImpl implements TiendaService {
                 .vendedorDni(entity.getVendedor() != null ? entity.getVendedor().getDni() : null)
                 .vendedorNombre(entity.getVendedor() != null ? entity.getVendedor().getNombre() : null)
                 .banners(entity.getBanners())
+                .costoEnvio(entity.getCostoEnvio())
                 .build();
     }
 }
