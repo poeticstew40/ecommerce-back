@@ -185,9 +185,16 @@ public class PedidosServiceImpl implements PedidosService {
         var response = new PedidosResponse();
         BeanUtils.copyProperties(entidad, response);
         
+        // Mapear datos del usuario
         if (entidad.getUsuario() != null) {
             response.setUsuarioDni(entidad.getUsuario().getDni());
+            response.setUsuarioNombre(entidad.getUsuario().getNombre()); 
+            response.setUsuarioApellido(entidad.getUsuario().getApellido());
         }
+
+        response.setDireccionEnvio(entidad.getDireccionEnvio());
+        response.setMetodoEnvio(entidad.getMetodoEnvio());
+        response.setCostoEnvio(entidad.getCostoEnvio());
 
         if (entidad.getItemsPedido() != null) {
             List<ItemsPedidosResponse> itemsDto = entidad.getItemsPedido().stream().map(item -> {

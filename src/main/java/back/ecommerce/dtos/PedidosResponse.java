@@ -18,5 +18,14 @@ public class PedidosResponse {
     private Double total;
     private LocalDateTime fechaPedido;
     private List<ItemsPedidosResponse> items;
+    
+    // Datos del Comprador
     private Long usuarioDni;
+    private String usuarioNombre;
+    private String usuarioApellido;
+    
+    // Datos de Envío
+    private String direccionEnvio;
+    private String metodoEnvio;
+    private Double costoEnvio;
 }

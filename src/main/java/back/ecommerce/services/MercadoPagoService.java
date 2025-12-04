@@ -14,11 +14,11 @@ import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
 import com.mercadopago.client.preference.PreferenceClient;
 import com.mercadopago.client.preference.PreferenceItemRequest;
 import com.mercadopago.client.preference.PreferenceRequest;
-import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.resources.payment.Payment;
 import com.mercadopago.resources.preference.Preference;
 
 import back.ecommerce.entities.PedidosEntity;
+import back.ecommerce.entities.UsuariosEntity; // Importar UsuariosEntity
 import back.ecommerce.repositories.PedidosRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +30,7 @@ public class MercadoPagoService {
 
     @Value("${mp.access.token}")
     private String accessToken;
-    
+
     @Value("${app.backend.url}")
     private String backendUrl;
     
@@ -42,6 +42,7 @@ public class MercadoPagoService {
 
     public String crearPreferencia(PedidosEntity pedido) {
         MercadoPagoConfig.setAccessToken(accessToken);
+
         List<PreferenceItemRequest> items = new ArrayList<>();
         
         pedido.getItemsPedido().forEach(item -> {
@@ -54,6 +55,7 @@ public class MercadoPagoService {
             items.add(itemRequest);
         });
 
+        // Agregar costo de envío como ítem si existe
         if (pedido.getCostoEnvio() != null && pedido.getCostoEnvio() > 0) {
             PreferenceItemRequest itemEnvio = PreferenceItemRequest.builder()
                     .title("Costo de Envío")
@@ -75,8 +77,7 @@ public class MercadoPagoService {
         PreferenceRequest preferenceRequest = PreferenceRequest.builder()
                 .items(items)
                 .backUrls(backUrls)
-                // Comentado para evitar error "back_url.success invalid" en localhost o URLs sin HTTPS
-                // .autoReturn("approved") 
+                .autoReturn("approved") 
                 .externalReference(String.valueOf(pedido.getId()))
                 .notificationUrl(backendUrl + "/api/pagos/webhook")
                 .build();
@@ -108,6 +109,7 @@ public class MercadoPagoService {
                     pedido.setEstado("PAGADO");
                     pedidosRepository.save(pedido);
                     
+                    // Enviar correos
                     if (pedido.getUsuario() != null) {
                         enviarEmailComprador(pedido, payment.getId());
                     }
@@ -122,6 +124,9 @@ public class MercadoPagoService {
         }
     } 
 
+    // ========================================================================
+    // CORREO PARA EL COMPRADOR (TICKET DE COMPRA)
+    // ========================================================================
     private void enviarEmailComprador(PedidosEntity pedido, Long mpPaymentId) {
         String email = pedido.getUsuario().getEmail();
         String asunto = "Comprobante de Compra - Pedido #" + pedido.getId();
@@ -133,8 +138,7 @@ public class MercadoPagoService {
     private String generarTicketHtml(PedidosEntity pedido, Long mpPaymentId) {
         StringBuilder sb = new StringBuilder();
         
-        // Estilos CSS inline
-        String colorPrimario = "#4F46E5"; 
+        String colorPrimario = "#4F46E5";
         String estiloTabla = "width: 100%; border-collapse: collapse; margin-top: 20px;";
         String estiloCelda = "padding: 12px; border-bottom: 1px solid #ddd; text-align: left;";
         String estiloHeader = "background-color: #f8f9fa; font-weight: bold;";
@@ -147,29 +151,26 @@ public class MercadoPagoService {
         sb.append("<p style='font-size: 18px;'>").append(pedido.getTienda().getNombreFantasia()).append("</p>");
         sb.append("</div>");
 
-        // Info del Pedido
+        // Info General
         sb.append("<div style='padding: 20px;'>");
         sb.append("<p>Hola <strong>").append(pedido.getUsuario().getNombre()).append("</strong>,</p>");
-        sb.append("<p>Tu pedido ha sido confirmado. Aquí tienes los detalles:</p>");
+        sb.append("<p>Tu pedido ha sido confirmado y el pago acreditado.</p>");
         
         sb.append("<table style='width: 100%; margin-bottom: 20px;'>");
         sb.append("<tr><td><strong>N° Pedido:</strong> #").append(pedido.getId()).append("</td>");
-        sb.append("<td><strong>Ref. Pago MP:</strong> ").append(mpPaymentId).append("</td></tr>");
+        sb.append("<td><strong>Pago MP:</strong> ").append(mpPaymentId).append("</td></tr>");
         
-        // Formato de fecha seguro
-        String fecha = pedido.getFechaPedido() != null ? 
-                       pedido.getFechaPedido().format(DateTimeFormatter.ISO_LOCAL_DATE) : "Hoy";
-                       
+        String fecha = pedido.getFechaPedido() != null ? pedido.getFechaPedido().format(DateTimeFormatter.ISO_LOCAL_DATE) : "Hoy";
         sb.append("<tr><td><strong>Fecha:</strong> ").append(fecha).append("</td>");
         sb.append("<td><strong>Estado:</strong> <span style='color:green; font-weight:bold;'>PAGADO</span></td></tr>");
         sb.append("</table>");
 
         // Tabla de Productos
+        sb.append("<h3>Detalle de productos</h3>");
         sb.append("<table style='").append(estiloTabla).append("'>");
         sb.append("<tr style='").append(estiloHeader).append("'>");
         sb.append("<th style='").append(estiloCelda).append("'>Producto</th>");
         sb.append("<th style='").append(estiloCelda).append("'>Cant.</th>");
-        sb.append("<th style='").append(estiloCelda).append("'>Precio Unit.</th>");
         sb.append("<th style='").append(estiloCelda).append("'>Subtotal</th>");
         sb.append("</tr>");
 
@@ -177,58 +178,110 @@ public class MercadoPagoService {
             sb.append("<tr>");
             sb.append("<td style='").append(estiloCelda).append("'>").append(item.getProducto().getNombre()).append("</td>");
             sb.append("<td style='").append(estiloCelda).append("'>").append(item.getCantidad()).append("</td>");
-            sb.append("<td style='").append(estiloCelda).append("'>$").append(item.getPrecioUnitario()).append("</td>");
             sb.append("<td style='").append(estiloCelda).append("'>$").append(item.getPrecioUnitario() * item.getCantidad()).append("</td>");
             sb.append("</tr>");
         });
 
-        // Envío
-        if (pedido.getCostoEnvio() != null && pedido.getCostoEnvio() > 0) {
-            sb.append("<tr>");
-            sb.append("<td style='").append(estiloCelda).append("'>Envío (").append(pedido.getMetodoEnvio()).append(")</td>");
-            sb.append("<td style='").append(estiloCelda).append("'>1</td>");
-            sb.append("<td style='").append(estiloCelda).append("'>$").append(pedido.getCostoEnvio()).append("</td>");
-            sb.append("<td style='").append(estiloCelda).append("'>$").append(pedido.getCostoEnvio()).append("</td>");
-            sb.append("</tr>");
-        }
-
-        // Total
+        // Sección de Totales y Envío
         sb.append("</table>");
-        sb.append("<h2 style='text-align: right; color: ").append(colorPrimario).append(";'>TOTAL: $").append(pedido.getTotal()).append("</h2>");
+        
+        sb.append("<div style='text-align: right; margin-top: 15px;'>");
+        if (pedido.getCostoEnvio() != null && pedido.getCostoEnvio() > 0) {
+            sb.append("<p>Subtotal Productos: $").append(pedido.getTotal() - pedido.getCostoEnvio()).append("</p>");
+            sb.append("<p>Envío: $").append(pedido.getCostoEnvio()).append("</p>");
+        } else {
+            sb.append("<p>Envío: Gratis / Retiro</p>");
+        }
+        sb.append("<h2 style='color: ").append(colorPrimario).append(";'>TOTAL: $").append(pedido.getTotal()).append("</h2>");
+        sb.append("</div>");
 
-        // Footer
-        sb.append("<div style='margin-top: 30px; padding-top: 20px; border-top: 2px solid #eee; font-size: 12px; color: #777;'>");
-        sb.append("<p>Dirección de entrega: ").append(pedido.getDireccionEnvio()).append("</p>");
-        sb.append("<p>Si tienes dudas, contacta a la tienda.</p>");
+        // Información de Entrega
+        sb.append("<div style='margin-top: 30px; background-color: #f9fafb; padding: 15px; border-radius: 8px;'>");
+        sb.append("<h3 style='margin-top: 0;'>Información de Entrega</h3>");
+        sb.append("<p><strong>Método:</strong> ").append(pedido.getMetodoEnvio() != null ? pedido.getMetodoEnvio() : "A convenir").append("</p>");
+        
+        if ("Envío a Domicilio".equalsIgnoreCase(pedido.getMetodoEnvio())) {
+            sb.append("<p><strong>Dirección de envío:</strong> ").append(pedido.getDireccionEnvio()).append("</p>");
+            sb.append("<p><em>El vendedor preparará tu paquete y lo enviará a esta dirección.</em></p>");
+        } else {
+            sb.append("<p><strong>Retiro en Tienda:</strong> Debes pasar a buscar tu pedido por el local.</p>");
+            sb.append("<p><em>Ponte en contacto con el vendedor para coordinar el horario.</em></p>");
+        }
         sb.append("</div>");
         
         sb.append("</div></body></html>");
-        
         return sb.toString();
     }
 
+    // ========================================================================
+    // CORREO PARA EL VENDEDOR (NUEVA VENTA) - ¡MEJORADO!
+    // ========================================================================
     private void enviarEmailVendedor(PedidosEntity pedido) {
         String emailVendedor = pedido.getTienda().getVendedor().getEmail();
         String asunto = "¡Nueva Venta! Pedido #" + pedido.getId();
+        UsuariosEntity comprador = pedido.getUsuario();
 
         StringBuilder mensaje = new StringBuilder();
-        mensaje.append("<html><body style='font-family: Arial, sans-serif;'>");
-        mensaje.append("<div style='padding: 20px; border: 1px solid #ddd; border-radius: 8px;'>");
-        mensaje.append("<h2 style='color: #27ae60;'>¡Nueva Venta Confirmada! 🎉</h2>");
-        mensaje.append("<p>El comprador <strong>").append(pedido.getUsuario().getNombre()).append("</strong> ha pagado el pedido #").append(pedido.getId()).append(".</p>");
+        mensaje.append("<html><body style='font-family: Arial, sans-serif; color: #333;'>");
         
-        mensaje.append("<h3>Resumen:</h3>");
-        mensaje.append("<ul>");
-        pedido.getItemsPedido().forEach(item -> {
-            mensaje.append("<li>").append(item.getCantidad()).append("x ").append(item.getProducto().getNombre()).append("</li>");
-        });
+        // Header Verde
+        mensaje.append("<div style='padding: 20px; background-color: #27ae60; color: white; text-align: center; border-radius: 8px 8px 0 0;'>");
+        mensaje.append("<h1 style='margin:0;'>¡Felicitaciones! Nueva Venta 🎉</h1>");
+        mensaje.append("<p style='margin:5px 0;'>Pedido #").append(pedido.getId()).append("</p>");
+        mensaje.append("</div>");
+
+        mensaje.append("<div style='padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px;'>");
+
+        // 1. Datos del Comprador
+        mensaje.append("<h3 style='border-bottom: 2px solid #eee; padding-bottom: 10px; color: #2c3e50;'>👤 Datos del Cliente</h3>");
+        mensaje.append("<ul style='list-style: none; padding: 0;'>");
+        mensaje.append("<li style='margin-bottom: 8px;'><strong>Nombre:</strong> ").append(comprador.getNombre()).append(" ").append(comprador.getApellido()).append("</li>");
+        mensaje.append("<li style='margin-bottom: 8px;'><strong>DNI:</strong> ").append(comprador.getDni()).append("</li>");
+        mensaje.append("<li style='margin-bottom: 8px;'><strong>Email:</strong> <a href='mailto:").append(comprador.getEmail()).append("'>").append(comprador.getEmail()).append("</a></li>");
         mensaje.append("</ul>");
+
+        // 2. Detalle de Entrega (Lógica condicional)
+        mensaje.append("<h3 style='border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 25px; color: #2c3e50;'>🚚 Método de Entrega</h3>");
         
-        mensaje.append("<h3 style='color: #333;'>Total: $").append(pedido.getTotal()).append("</h3>");
-        mensaje.append("<hr>");
-        mensaje.append("<p><strong>Envío a:</strong> ").append(pedido.getDireccionEnvio()).append("</p>");
-        mensaje.append("<p style='font-weight: bold;'>¡A preparar el paquete!</p>");
-        mensaje.append("</div></body></html>");
+        String metodo = pedido.getMetodoEnvio() != null ? pedido.getMetodoEnvio() : "A convenir";
+        boolean esEnvio = "Envío a Domicilio".equalsIgnoreCase(metodo);
+
+        mensaje.append("<div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px;'>");
+        mensaje.append("<p style='font-size: 1.1em; font-weight: bold; margin-top: 0;'>").append(metodo).append("</p>");
+
+        if (esEnvio) {
+            mensaje.append("<p><strong>Dirección de Entrega:</strong><br>").append(pedido.getDireccionEnvio()).append("</p>");
+            if (pedido.getCostoEnvio() != null && pedido.getCostoEnvio() > 0) {
+                mensaje.append("<p><strong>Costo de envío cobrado:</strong> $").append(pedido.getCostoEnvio()).append("</p>");
+            } else {
+                mensaje.append("<p><strong>Costo de envío:</strong> Gratis / Incluido</p>");
+            }
+            mensaje.append("<p style='color: #d35400;'>⚠ Debes preparar el paquete para envío.</p>");
+        } else {
+            mensaje.append("<p>El cliente pasará a retirar el pedido por tu tienda.</p>");
+            mensaje.append("<p><strong>Costo de envío:</strong> $0.00</p>");
+            mensaje.append("<p style='color: #27ae60;'>✓ Ten el pedido listo para entregar.</p>");
+        }
+        mensaje.append("</div>");
+
+        // 3. Resumen de Productos
+        mensaje.append("<h3 style='border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 25px; color: #2c3e50;'>🛒 Productos Vendidos</h3>");
+        mensaje.append("<table style='width: 100%; border-collapse: collapse;'>");
+        mensaje.append("<tr style='background-color: #f1f1f1;'><th style='padding: 8px; text-align: left;'>Cant.</th><th style='padding: 8px; text-align: left;'>Producto</th><th style='padding: 8px; text-align: right;'>Precio</th></tr>");
+        
+        pedido.getItemsPedido().forEach(item -> {
+            mensaje.append("<tr>");
+            mensaje.append("<td style='padding: 8px; border-bottom: 1px solid #eee;'>").append(item.getCantidad()).append("</td>");
+            mensaje.append("<td style='padding: 8px; border-bottom: 1px solid #eee;'>").append(item.getProducto().getNombre()).append("</td>");
+            mensaje.append("<td style='padding: 8px; border-bottom: 1px solid #eee; text-align: right;'>$").append(item.getPrecioUnitario() * item.getCantidad()).append("</td>");
+            mensaje.append("</tr>");
+        });
+        mensaje.append("</table>");
+
+        mensaje.append("<h2 style='text-align: right; color: #27ae60; margin-top: 20px;'>Total Pagado: $").append(pedido.getTotal()).append("</h2>");
+        
+        mensaje.append("</div>");
+        mensaje.append("</body></html>");
 
         emailService.enviarCorreo(emailVendedor, asunto, mensaje.toString());
     }
