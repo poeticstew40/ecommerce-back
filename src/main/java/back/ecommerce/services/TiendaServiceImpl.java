@@ -87,7 +87,7 @@ public class TiendaServiceImpl implements TiendaService {
             usuariosRepository.save(vendedor);
         }
 
-        String linkTienda = frontendUrl + "/tienda/home" + tiendaGuardada.getNombreUrl();
+        String linkTienda = frontendUrl + "/tienda/" + tiendaGuardada.getNombreUrl() + "/home";
         String html = """
             <html>
             <body style='font-family: Arial, sans-serif; color: #333; background-color: #f4f4f4; padding: 20px;'>
