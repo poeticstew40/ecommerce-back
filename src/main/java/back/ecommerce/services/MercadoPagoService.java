@@ -42,6 +42,10 @@ public class MercadoPagoService {
     private final EmailService emailService;
 
     public String crearPreferencia(PedidosEntity pedido) {
+
+        log.info("DEBUG URL FRONTEND: '{}'", this.frontendUrl);
+        log.info("DEBUG URL BACKEND: '{}'", this.backendUrl);
+
         MercadoPagoConfig.setAccessToken(accessToken);
 
         List<PreferenceItemRequest> items = new ArrayList<>();
