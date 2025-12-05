@@ -2,6 +2,8 @@ package back.ecommerce.services;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -204,9 +206,13 @@ public class TiendaServiceImpl implements TiendaService {
     @Override
     @Transactional(readOnly = true)
     public List<TiendaResponse> readAll() {
-        return tiendaRepository.findAll().stream()
+        List<TiendaResponse> tiendas = tiendaRepository.findAll().stream()
                 .map(this::convertirEntidadAResponse)
-                .toList();
+                .collect(Collectors.toList());
+
+        tiendas.sort((t1, t2) -> t2.getCantidadProductos().compareTo(t1.getCantidadProductos()));
+
+        return tiendas;
     }
 
     private TiendaResponse convertirEntidadAResponse(TiendaEntity entity) {
@@ -220,6 +226,7 @@ public class TiendaServiceImpl implements TiendaService {
                 .vendedorNombre(entity.getVendedor() != null ? entity.getVendedor().getNombre() : null)
                 .banners(entity.getBanners())
                 .costoEnvio(entity.getCostoEnvio())
+                .cantidadProductos(cantidad)
                 .build();
     }
 

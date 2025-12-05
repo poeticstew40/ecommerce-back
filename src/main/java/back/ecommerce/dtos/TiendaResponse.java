@@ -19,5 +19,6 @@ public class TiendaResponse {
     private Long vendedorDni;
     private String vendedorNombre;
     private List<String> banners;
+    private Integer cantidadProductos;
     private Double costoEnvio;
 }
