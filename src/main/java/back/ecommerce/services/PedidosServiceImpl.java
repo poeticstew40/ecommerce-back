@@ -63,7 +63,7 @@ public class PedidosServiceImpl implements PedidosService {
         } else {
             itemsParaProcesar = pedidoRequest.getItems().stream().map(item -> {
                 return ItemsPedidosRequest.builder()
-                        .productoId(item.getIdProducto()) // DTO mapping adjusted
+                        .productoId(item.getProductoId()) 
                         .cantidad(item.getCantidad())
                         .build();
             }).collect(Collectors.toList());
@@ -77,7 +77,7 @@ public class PedidosServiceImpl implements PedidosService {
         pedidoEntity.setItemsPedido(new ArrayList<>());
         
         pedidoEntity.setMetodoEnvio(pedidoRequest.getMetodoEnvio());
-
+        
         if (pedidoRequest.getDireccionEnvio() == null || pedidoRequest.getDireccionEnvio().isBlank()) {
              if (usuario.getDirecciones() != null && !usuario.getDirecciones().isEmpty()) {
                  var dir = usuario.getDirecciones().get(0);
@@ -85,7 +85,12 @@ public class PedidosServiceImpl implements PedidosService {
                                          dir.getLocalidad() + " (" + dir.getProvincia() + ")";
                  pedidoEntity.setDireccionEnvio(direccionTexto);
              } else {
-                 throw new IllegalArgumentException("Debes ingresar una dirección de envío o cargar una en tu perfil.");
+                 // Si es retiro en tienda, permitimos dirección vacía, si es envío no.
+                 if ("Retiro en Tienda".equals(pedidoRequest.getMetodoEnvio())) {
+                     pedidoEntity.setDireccionEnvio("Retiro por local");
+                 } else {
+                     throw new IllegalArgumentException("Debes ingresar una dirección de envío o cargar una en tu perfil.");
+                 }
              }
         } else {
              pedidoEntity.setDireccionEnvio(pedidoRequest.getDireccionEnvio());
@@ -156,6 +161,13 @@ public class PedidosServiceImpl implements PedidosService {
     }
 
     @Override
+    public List<PedidosResponse> findAllByUsuarioDniGlobal(Long dni) {
+        return pedidosRepository.findByUsuarioDni(dni).stream()
+                .map(this::convertirEntidadAResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public PedidosResponse readById(Long id) {
         var entity = pedidosRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Pedido no encontrado: " + id));
@@ -181,18 +193,10 @@ public class PedidosServiceImpl implements PedidosService {
         pedidosRepository.delete(entity);
     }
 
-    @Override
-    public List<PedidosResponse> findAllByUsuarioDniGlobal (Long dni) {
-        return pedidosRepository.findByUsuarioDni(dni).stream()
-                .map(this::convertirEntidadAResponse)
-                .collect(Collectors.toList());
-    }
-
     private PedidosResponse convertirEntidadAResponse(PedidosEntity entidad) {
         var response = new PedidosResponse();
         BeanUtils.copyProperties(entidad, response);
         
-        // Mapear datos del usuario
         if (entidad.getUsuario() != null) {
             response.setUsuarioDni(entidad.getUsuario().getDni());
             response.setUsuarioNombre(entidad.getUsuario().getNombre()); 
@@ -200,9 +204,9 @@ public class PedidosServiceImpl implements PedidosService {
         }
 
         if (entidad.getTienda() != null) {
+            response.setTiendaNombre(entidad.getTienda().getNombreFantasia());
+            response.setTiendaUrl(entidad.getTienda().getNombreUrl());
             response.setTiendaLogo(entidad.getTienda().getLogo());
-            response.setTiendaNombre(entidad.getTienda().getNombre());
-            response.setTiendaNombreUrl(entidad.getTienda().getNombreUrl());
         }
 
         response.setDireccionEnvio(entidad.getDireccionEnvio());

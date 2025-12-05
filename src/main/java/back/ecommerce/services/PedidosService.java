@@ -8,8 +8,8 @@ public interface PedidosService {
     PedidosResponse create(String nombreTienda, PedidosRequest request);
     List<PedidosResponse> readAllByTienda(String nombreTienda);
     List<PedidosResponse> findByUsuarioDni(String nombreTienda, Long dni);
+    List<PedidosResponse> findAllByUsuarioDniGlobal(Long dni);
     PedidosResponse readById(Long id);
     PedidosResponse update(Long id, PedidosRequest request);
     void delete(Long id);
-    List<PedidosResponse> findAllByUsuarioDniGlobal(Long dni);
 }
