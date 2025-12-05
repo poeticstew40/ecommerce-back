@@ -92,15 +92,20 @@ public class ProductosServiceImpl implements ProductosService {
             productos = Collections.emptyList();
         }
         
-        return productos.stream()
-                .filter(ProductosEntity::getActivo) 
-                .map(this::convertirEntidadAResponse)
-                .collect(Collectors.toList());
+        return java.util.Optional.ofNullable(productosRepository.findByTiendaNombreUrl(nombreTienda, sort))
+                 .orElseGet(java.util.Collections::emptyList)
+                 .stream()
+                 .filter(ProductosEntity::getActivo) 
+                 .map(this::convertirEntidadAResponse)
+                 .collect(Collectors.toList());
     }
+
+    // back.ecommerce.services.ProductosServiceImpl.java
 
     @Override
     public List<ProductosResponse> buscarPorNombre(String nombreTienda, String termino) {
-        return productosRepository.findByTiendaNombreUrlAndNombreContainingIgnoreCase(nombreTienda, termino)
+        return java.util.Optional.ofNullable(productosRepository.findByTiendaNombreUrlAndNombreContainingIgnoreCase(nombreTienda, termino))
+                .orElseGet(java.util.Collections::emptyList)
                 .stream()
                 .filter(ProductosEntity::getActivo) 
                 .map(this::convertirEntidadAResponse)
@@ -109,7 +114,8 @@ public class ProductosServiceImpl implements ProductosService {
 
     @Override
     public List<ProductosResponse> buscarPorCategoria(String nombreTienda, Long categoriaId) {
-        return productosRepository.findByTiendaNombreUrlAndCategoriaId(nombreTienda, categoriaId)
+        return java.util.Optional.ofNullable(productosRepository.findByTiendaNombreUrlAndCategoriaId(nombreTienda, categoriaId))
+                .orElseGet(java.util.Collections::emptyList)
                 .stream()
                 .filter(ProductosEntity::getActivo) 
                 .map(this::convertirEntidadAResponse)
