@@ -2,7 +2,6 @@ package back.ecommerce.services;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -11,9 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 import back.ecommerce.dtos.CategoriasRequest;
 import back.ecommerce.dtos.CategoriasResponse;
 import back.ecommerce.entities.CategoriasEntity;
+import back.ecommerce.entities.ProductosEntity;
 import back.ecommerce.entities.TiendaEntity;
 import back.ecommerce.entities.UsuariosEntity;
 import back.ecommerce.repositories.CategoriasRepository;
+import back.ecommerce.repositories.ProductosRepository;
 import back.ecommerce.repositories.TiendaRepository;
 import lombok.AllArgsConstructor;
 
@@ -24,12 +25,12 @@ public class CategoriasServiceImpl implements CategoriasService {
 
     private final CategoriasRepository categoriasRepository;
     private final TiendaRepository tiendaRepository;
+    private final ProductosRepository productosRepository;
 
     @Override
     public CategoriasResponse create(String nombreTienda, CategoriasRequest request) {
         var tienda = tiendaRepository.findByNombreUrl(nombreTienda)
                 .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreTienda));
-        
         validarDueño(tienda);
 
         boolean existe = categoriasRepository.findByTiendaNombreUrl(nombreTienda).stream()
@@ -38,7 +39,7 @@ public class CategoriasServiceImpl implements CategoriasService {
         if (existe) {
             throw new IllegalArgumentException("Ya existe una categoría con el nombre '" + request.getNombre() + "' en esta tienda.");
         }
-
+        
         var entity = new CategoriasEntity();
         entity.setNombre(request.getNombre());
         entity.setTienda(tienda);
@@ -65,10 +66,16 @@ public class CategoriasServiceImpl implements CategoriasService {
     public CategoriasResponse update(Long id, CategoriasRequest request) {
         var entity = categoriasRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + id));
-        
         validarDueño(entity.getTienda());
 
         if (request.getNombre() != null && !request.getNombre().isBlank()) {
+            boolean existe = categoriasRepository.findByTiendaNombreUrl(entity.getTienda().getNombreUrl()).stream()
+                .anyMatch(cat -> cat.getNombre().equalsIgnoreCase(request.getNombre()) && !cat.getId().equals(id));
+            
+            if (existe) {
+                throw new IllegalArgumentException("Ya existe otra categoría con el nombre '" + request.getNombre() + "' en esta tienda.");
+            }
+            
             entity.setNombre(request.getNombre());
         }
 
@@ -80,15 +87,31 @@ public class CategoriasServiceImpl implements CategoriasService {
     public void delete(Long id) {
         var entity = categoriasRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + id));
-        
         validarDueño(entity.getTienda());
+
+        if (entity.getNombre().equalsIgnoreCase("Otros")) {
+             throw new IllegalArgumentException("La categoría 'Otros' no puede ser eliminada.");
+        }
+        
+        var categoriaOtros = categoriasRepository.findByTiendaNombreUrl(entity.getTienda().getNombreUrl()).stream()
+            .filter(cat -> cat.getNombre().equalsIgnoreCase("Otros"))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("No se encontró la categoría 'Otros' para reasignar productos."));
+
+        List<ProductosEntity> productosAsociados = entity.getProductos();
+        
+        if (productosAsociados != null && !productosAsociados.isEmpty()) {
+            for (ProductosEntity producto : productosAsociados) {
+                producto.setCategoria(categoriaOtros);
+                productosRepository.save(producto);
+            }
+        }
 
         categoriasRepository.delete(entity);
     }
 
     private void validarDueño(TiendaEntity tienda) {
         UsuariosEntity usuarioLogueado = (UsuariosEntity) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        
         if (!tienda.getVendedor().getEmail().equals(usuarioLogueado.getEmail())) {
             throw new IllegalArgumentException("ACCESO DENEGADO: No eres el dueño de esta tienda (Email incorrecto).");
         }
