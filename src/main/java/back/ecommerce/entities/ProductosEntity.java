@@ -39,6 +39,9 @@ public class ProductosEntity {
     private String descripcion;
     private Double precio;
     private Integer stock;
+
+    @Column(columnDefinition = "boolean default true")
+    private Boolean activo = true; 
     
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "producto_imagenes", joinColumns = @JoinColumn(name = "producto_id"))

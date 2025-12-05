@@ -39,13 +39,11 @@ public class ProductosServiceImpl implements ProductosService {
 
         var categoria = categoriasRepository.findById(productoRequest.getCategoriaId())
             .orElseThrow(() -> new IllegalArgumentException("Categoria no encontrada con id: " + productoRequest.getCategoriaId()));
-        
         if (!categoria.getTienda().getId().equals(tienda.getId())) {
             throw new IllegalArgumentException("Error de Seguridad: La categoría no pertenece a esta tienda.");
         }
 
         List<String> listaImagenes = new ArrayList<>();
-        
         if (files != null && !files.isEmpty()) {
             for (MultipartFile file : files) {
                 if (!file.isEmpty()) {
@@ -69,7 +67,6 @@ public class ProductosServiceImpl implements ProductosService {
         entity.setImagenes(listaImagenes);
         entity.setCategoria(categoria);
         entity.setTienda(tienda);
-        
         var productoCreated = productosRepository.save(entity);
 
         return convertirEntidadAResponse(productoCreated);
@@ -80,7 +77,8 @@ public class ProductosServiceImpl implements ProductosService {
         Sort sort = Sort.by("id").descending();
         if (orden != null) {
             switch (orden) {
-                case "precio_asc": sort = Sort.by("precio").ascending(); break;
+                case "precio_asc": sort = Sort.by("precio").ascending();
+                break;
                 case "precio_desc": sort = Sort.by("precio").descending(); break;
                 case "nombre_asc": sort = Sort.by("nombre").ascending(); break;
                 case "nombre_desc": sort = Sort.by("nombre").descending(); break;
@@ -89,6 +87,7 @@ public class ProductosServiceImpl implements ProductosService {
 
         return productosRepository.findByTiendaNombreUrl(nombreTienda, sort)
                 .stream()
+                .filter(ProductosEntity::getActivo) 
                 .map(this::convertirEntidadAResponse)
                 .collect(Collectors.toList());
     }
@@ -97,6 +96,7 @@ public class ProductosServiceImpl implements ProductosService {
     public List<ProductosResponse> buscarPorNombre(String nombreTienda, String termino) {
         return productosRepository.findByTiendaNombreUrlAndNombreContainingIgnoreCase(nombreTienda, termino)
                 .stream()
+                .filter(ProductosEntity::getActivo) 
                 .map(this::convertirEntidadAResponse)
                 .collect(Collectors.toList());
     }
@@ -105,6 +105,7 @@ public class ProductosServiceImpl implements ProductosService {
     public List<ProductosResponse> buscarPorCategoria(String nombreTienda, Long categoriaId) {
         return productosRepository.findByTiendaNombreUrlAndCategoriaId(nombreTienda, categoriaId)
                 .stream()
+                .filter(ProductosEntity::getActivo) 
                 .map(this::convertirEntidadAResponse)
                 .collect(Collectors.toList());
     }
@@ -135,6 +136,10 @@ public class ProductosServiceImpl implements ProductosService {
             entityFromDB.setStock(productoRequest.getStock());
         }
         
+        if (productoRequest.getActivo() != null) {
+            entityFromDB.setActivo(productoRequest.getActivo());
+        }
+        
         if (productoRequest.getCategoriaId() != null) {
             var categoria = categoriasRepository.findById(productoRequest.getCategoriaId())
                 .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con id: " + productoRequest.getCategoriaId()));
@@ -147,7 +152,6 @@ public class ProductosServiceImpl implements ProductosService {
         List<String> imagenesFinales = (productoRequest.getImagenes() != null) 
                                        ? new ArrayList<>(productoRequest.getImagenes()) 
                                        : new ArrayList<>(entityFromDB.getImagenes());
-
         if (files != null && !files.isEmpty()) {
             for (MultipartFile file : files) {
                 if (!file.isEmpty()) {
@@ -158,7 +162,6 @@ public class ProductosServiceImpl implements ProductosService {
         }
         
         entityFromDB.setImagenes(imagenesFinales);
-        
         var productoActualizado = this.productosRepository.save(entityFromDB);
         return convertirEntidadAResponse(productoActualizado);
     }
@@ -168,7 +171,11 @@ public class ProductosServiceImpl implements ProductosService {
         var producto = this.productosRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con id: " + id));
         validarDueño(producto.getTienda());
-        this.productosRepository.delete(producto);
+        
+        if (producto.getActivo() == null || producto.getActivo()) {
+            producto.setActivo(false);
+            this.productosRepository.save(producto);
+        }
     }
 
     private void validarDueño(TiendaEntity tienda) {

@@ -90,7 +90,8 @@ public class ProductosController {
             @PathVariable Long id,
             @Parameter(schema = @Schema(type = "string", format = "json"))
             @RequestPart(value = "producto", required = false) String productoStr,
-            @RequestPart(value = "files", required = false) List<MultipartFile> files) throws JsonProcessingException {
+            @RequestPart(value = "files", required = false) List<MultipartFile> 
+            files) throws JsonProcessingException {
         
         ProductosRequest request = new ProductosRequest();
         if (productoStr != null) {

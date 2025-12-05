@@ -37,5 +37,7 @@ public class ProductosRequest {
     @Min(value = 0, message = "El stock no puede ser negativo")
     private Integer stock;
     
+    private Boolean activo; 
+    
     private List<String> imagenes;
 }
