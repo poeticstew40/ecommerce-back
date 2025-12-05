@@ -110,7 +110,7 @@ public class TiendaServiceImpl implements TiendaService {
             """.formatted(vendedor.getNombre(), tiendaGuardada.getNombreFantasia(), linkTienda, linkTienda, linkTienda);
 
         emailService.enviarCorreo(vendedor.getEmail(), "Tu tienda está lista!", html);
-         
+          
         return convertirEntidadAResponse(tiendaGuardada);
     }
 
@@ -164,8 +164,8 @@ public class TiendaServiceImpl implements TiendaService {
         }
 
         List<String> bannersFinales = (request.getBanners() != null) 
-                                      ? new ArrayList<>(request.getBanners()) 
-                                      : new ArrayList<>(entity.getBanners());
+                                       ? new ArrayList<>(request.getBanners()) 
+                                       : new ArrayList<>(entity.getBanners());
 
         if (bannerFiles != null && !bannerFiles.isEmpty()) {
             for (MultipartFile file : bannerFiles) {
@@ -216,8 +216,14 @@ public class TiendaServiceImpl implements TiendaService {
     }
 
     private TiendaResponse convertirEntidadAResponse(TiendaEntity entity) {
-        int cantidad = (entity.getProductos() != null) ? entity.getProductos().size() : 0;
-
+        
+        int cantidad = 0;
+        if (entity.getProductos() != null) {
+            cantidad = (int) entity.getProductos().stream()
+                .filter(p -> p.getActivo() != null && p.getActivo()) 
+                .count();
+        }
+        
         return TiendaResponse.builder()
                 .id(entity.getId())
                 .nombreUrl(entity.getNombreUrl())
