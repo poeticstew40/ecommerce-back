@@ -14,9 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import back.ecommerce.dtos.UsuariosRequest;
 import back.ecommerce.dtos.UsuariosResponse;
-import back.ecommerce.dtos.PedidosResponse; // Import necesario
+import back.ecommerce.dtos.PedidosResponse;
 import back.ecommerce.services.UsuariosService;
-import back.ecommerce.services.PedidosService; // Import necesario
+import back.ecommerce.services.PedidosService;
 import lombok.AllArgsConstructor;
 
 @RestController
@@ -26,7 +26,7 @@ import lombok.AllArgsConstructor;
 public class UsuariosController {
 
     private final UsuariosService usuariosService;
-    private final PedidosService pedidosService; // Inyectamos el servicio de pedidos
+    private final PedidosService pedidosService;
 
     @GetMapping()
     public ResponseEntity<List<UsuariosResponse>> obtenerTodosLosUsuarios() {

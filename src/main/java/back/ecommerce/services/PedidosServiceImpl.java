@@ -63,7 +63,7 @@ public class PedidosServiceImpl implements PedidosService {
         } else {
             itemsParaProcesar = pedidoRequest.getItems().stream().map(item -> {
                 return ItemsPedidosRequest.builder()
-                        .productoId(item.getProductoId()) 
+                        .productoId(item.getIdProducto())
                         .cantidad(item.getCantidad())
                         .build();
             }).collect(Collectors.toList());
@@ -85,7 +85,6 @@ public class PedidosServiceImpl implements PedidosService {
                                          dir.getLocalidad() + " (" + dir.getProvincia() + ")";
                  pedidoEntity.setDireccionEnvio(direccionTexto);
              } else {
-                 // Si es retiro en tienda, permitimos dirección vacía, si es envío no.
                  if ("Retiro en Tienda".equals(pedidoRequest.getMetodoEnvio())) {
                      pedidoEntity.setDireccionEnvio("Retiro por local");
                  } else {
