@@ -3,6 +3,7 @@ package back.ecommerce.services;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Collections;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -85,8 +86,13 @@ public class ProductosServiceImpl implements ProductosService {
             }
         }
 
-        return productosRepository.findByTiendaNombreUrl(nombreTienda, sort)
-                .stream()
+        List<ProductosEntity> productos = productosRepository.findByTiendaNombreUrl(nombreTienda, sort);
+
+        if (productos == null) {
+            productos = Collections.emptyList();
+        }
+        
+        return productos.stream()
                 .filter(ProductosEntity::getActivo) 
                 .map(this::convertirEntidadAResponse)
                 .collect(Collectors.toList());
