@@ -28,4 +28,9 @@ public class PedidosResponse {
     private String direccionEnvio;
     private String metodoEnvio;
     private Double costoEnvio;
+
+    //Datos tienda
+    private String tiendaNombre;
+    private String tiendaUrl;
+    private String tiendaLogo;
 }

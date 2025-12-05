@@ -181,6 +181,13 @@ public class PedidosServiceImpl implements PedidosService {
         pedidosRepository.delete(entity);
     }
 
+    @Override
+    public List<PedidosResponse> findAllByUsuarioDniGlobal (Long dni) {
+        return pedidosRepository.findByUsuarioDni(dni).stream()
+                .map(this::convertirEntidadAResponse)
+                .collect(Collectors.toList());
+    }
+
     private PedidosResponse convertirEntidadAResponse(PedidosEntity entidad) {
         var response = new PedidosResponse();
         BeanUtils.copyProperties(entidad, response);
@@ -190,6 +197,12 @@ public class PedidosServiceImpl implements PedidosService {
             response.setUsuarioDni(entidad.getUsuario().getDni());
             response.setUsuarioNombre(entidad.getUsuario().getNombre()); 
             response.setUsuarioApellido(entidad.getUsuario().getApellido());
+        }
+
+        if (entidad.getTienda() != null) {
+            response.setTiendaLogo(entidad.getTienda().getLogo());
+            response.setTiendaNombre(entidad.getTienda().getNombre());
+            response.setTiendaNombreUrl(entidad.getTienda().getNombreUrl());
         }
 
         response.setDireccionEnvio(entidad.getDireccionEnvio());

@@ -11,4 +11,5 @@ public interface PedidosService {
     PedidosResponse readById(Long id);
     PedidosResponse update(Long id, PedidosRequest request);
     void delete(Long id);
+    List<PedidosResponse> findAllByUsuarioDniGlobal(Long dni);
 }
