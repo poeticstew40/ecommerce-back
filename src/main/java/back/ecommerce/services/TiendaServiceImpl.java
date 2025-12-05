@@ -177,8 +177,8 @@ public class TiendaServiceImpl implements TiendaService {
         }
 
         if (request.getCostoEnvio() != null) {
-        entity.setCostoEnvio(request.getCostoEnvio());
-}
+            entity.setCostoEnvio(request.getCostoEnvio());
+        }
         
         entity.setBanners(bannersFinales);
 
@@ -216,6 +216,8 @@ public class TiendaServiceImpl implements TiendaService {
     }
 
     private TiendaResponse convertirEntidadAResponse(TiendaEntity entity) {
+        int cantidad = (entity.getProductos() != null) ? entity.getProductos().size() : 0;
+
         return TiendaResponse.builder()
                 .id(entity.getId())
                 .nombreUrl(entity.getNombreUrl())
