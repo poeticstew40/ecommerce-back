@@ -40,10 +40,8 @@ public class ProductosServiceImpl implements ProductosService {
                 .orElseThrow(() -> new IllegalArgumentException("Tienda no encontrada: " + nombreTienda));
         validarDueño(tienda);
 
-        // --- INICIO MODIFICACIÓN CREATE: ASIGNACIÓN SEGURA DE CATEGORÍA ---
         var categoria = asignarCategoriaSegura(productoRequest.getCategoriaId(), tienda);
-        // --- FIN MODIFICACIÓN CREATE ---
-
+        
         List<String> listaImagenes = new ArrayList<>();
         if (files != null && !files.isEmpty()) {
             for (MultipartFile file : files) {
@@ -64,6 +62,8 @@ public class ProductosServiceImpl implements ProductosService {
 
         var entity = new ProductosEntity();
         BeanUtils.copyProperties(productoRequest, entity);
+        
+        entity.setActivo(true); 
         
         entity.setImagenes(listaImagenes);
         entity.setCategoria(categoria);
@@ -86,34 +86,31 @@ public class ProductosServiceImpl implements ProductosService {
             }
         }
 
-        // Protección contra repositorio devolviendo null
         return Optional.ofNullable(productosRepository.findByTiendaNombreUrl(nombreTienda, sort))
              .orElseGet(Collections::emptyList)
              .stream()
-             .filter(p -> p != null) // Protección adicional por si la lista contiene nulls
-             .filter(ProductosEntity::getActivo) 
+             .filter(p -> p != null)
+             .filter(p -> p.getActivo() == null || p.getActivo()) 
              .map(this::convertirEntidadAResponse)
              .collect(Collectors.toList());
     }
 
     @Override
     public List<ProductosResponse> buscarPorNombre(String nombreTienda, String termino) {
-        // Protección contra repositorio devolviendo null
         return Optional.ofNullable(productosRepository.findByTiendaNombreUrlAndNombreContainingIgnoreCase(nombreTienda, termino))
              .orElseGet(Collections::emptyList)
              .stream()
-             .filter(ProductosEntity::getActivo) 
+             .filter(p -> p.getActivo() == null || p.getActivo()) 
              .map(this::convertirEntidadAResponse)
              .collect(Collectors.toList());
     }
 
     @Override
     public List<ProductosResponse> buscarPorCategoria(String nombreTienda, Long categoriaId) {
-        // Protección contra repositorio devolviendo null
         return Optional.ofNullable(productosRepository.findByTiendaNombreUrlAndCategoriaId(nombreTienda, categoriaId))
              .orElseGet(Collections::emptyList)
              .stream()
-             .filter(ProductosEntity::getActivo) 
+             .filter(p -> p.getActivo() == null || p.getActivo()) 
              .map(this::convertirEntidadAResponse)
              .collect(Collectors.toList());
     }
@@ -148,20 +145,15 @@ public class ProductosServiceImpl implements ProductosService {
             entityFromDB.setActivo(productoRequest.getActivo());
         }
         
-        // --- INICIO MODIFICACIÓN UPDATE: ASIGNACIÓN SEGURA DE CATEGORÍA ---
         if (productoRequest.getCategoriaId() != null) {
-            // Usamos la nueva lógica para asegurar la categoría o asignar "Otros"
             var categoria = asignarCategoriaSegura(productoRequest.getCategoriaId(), entityFromDB.getTienda());
             
-            // La validación de pertenencia a la tienda ya está dentro de asignarCategoriaSegura,
-            // pero la dejamos aquí para un manejo explícito si se necesitara, aunque es redundante.
             if (!categoria.getTienda().getId().equals(entityFromDB.getTienda().getId())) {
                 throw new IllegalArgumentException("Error: No puedes mover este producto a una categoría de otra tienda.");
             }
             
             entityFromDB.setCategoria(categoria);
         }
-        // --- FIN MODIFICACIÓN UPDATE ---
         
         List<String> imagenesFinales = (productoRequest.getImagenes() != null) 
                                        ? new ArrayList<>(productoRequest.getImagenes()) 
@@ -187,7 +179,7 @@ public class ProductosServiceImpl implements ProductosService {
         validarDueño(producto.getTienda());
         
         if (producto.getActivo() == null || producto.getActivo()) {
-            producto.setActivo(false);
+            producto.setActivo(false); 
             this.productosRepository.save(producto);
         }
     }
