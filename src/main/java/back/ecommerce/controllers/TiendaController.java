@@ -56,6 +56,11 @@ public class TiendaController {
         return ResponseEntity.created(location).body(tiendaCreada);
     }
 
+    @GetMapping
+    public ResponseEntity<List<TiendaResponse>> listarTodas() {
+        return ResponseEntity.ok(tiendaService.readAll());
+    }
+
     @GetMapping("/{nombreUrl}")
     public ResponseEntity<TiendaResponse> obtenerTienda(@PathVariable String nombreUrl) {
         return ResponseEntity.ok(tiendaService.readByNombreUrl(nombreUrl));

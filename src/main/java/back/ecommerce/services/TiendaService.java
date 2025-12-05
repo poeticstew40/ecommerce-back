@@ -9,6 +9,8 @@ public interface TiendaService {
     TiendaResponse create(TiendaRequest request, MultipartFile logoFile, List<MultipartFile> bannerFiles);
     TiendaResponse readByNombreUrl(String nombreUrl);
     TiendaResponse readByVendedorDni(Long dni);
+    List<TiendaResponse> readAll();
     TiendaResponse update(String nombreUrl, TiendaRequest request, MultipartFile logoFile, List<MultipartFile> bannerFiles);
     void delete(String nombreUrl);
+
 }

@@ -201,6 +201,14 @@ public class TiendaServiceImpl implements TiendaService {
         }
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<TiendaResponse> readAll() {
+        return tiendaRepository.findAll().stream()
+                .map(this::convertirEntidadAResponse)
+                .toList();
+    }
+
     private TiendaResponse convertirEntidadAResponse(TiendaEntity entity) {
         return TiendaResponse.builder()
                 .id(entity.getId())
@@ -214,4 +222,5 @@ public class TiendaServiceImpl implements TiendaService {
                 .costoEnvio(entity.getCostoEnvio())
                 .build();
     }
+
 }
