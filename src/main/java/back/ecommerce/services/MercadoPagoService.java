@@ -14,11 +14,12 @@ import com.mercadopago.client.preference.PreferenceBackUrlsRequest;
 import com.mercadopago.client.preference.PreferenceClient;
 import com.mercadopago.client.preference.PreferenceItemRequest;
 import com.mercadopago.client.preference.PreferenceRequest;
+import com.mercadopago.exceptions.MPApiException; // Importar Excepción MP
 import com.mercadopago.resources.payment.Payment;
 import com.mercadopago.resources.preference.Preference;
 
 import back.ecommerce.entities.PedidosEntity;
-import back.ecommerce.entities.UsuariosEntity; // Importar UsuariosEntity
+import back.ecommerce.entities.UsuariosEntity;
 import back.ecommerce.repositories.PedidosRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -86,6 +87,10 @@ public class MercadoPagoService {
             PreferenceClient client = new PreferenceClient();
             Preference preference = client.create(preferenceRequest);
             return preference.getInitPoint();
+        } catch (MPApiException e) {
+            // Captura el error específico de la API de Mercado Pago con el detalle
+            log.error("❌ ERROR API MP: Status: {} | Body: {}", e.getStatusCode(), e.getApiResponse().getContent());
+            throw new RuntimeException("Mercado Pago rechazó los datos: " + e.getApiResponse().getContent());
         } catch (Exception e) {
             log.error("Error creando preferencia MP: {}", e.getMessage());
             throw new RuntimeException("Error creando preferencia MP", e);
