@@ -43,6 +43,9 @@ public class MercadoPagoService {
 
     public String crearPreferencia(PedidosEntity pedido) {
 
+        String urlFrontLimpia = this.frontendUrl.trim(); 
+        String urlBackLimpia = this.backendUrl.trim();
+
         log.info("DEBUG URL FRONTEND: '{}'", this.frontendUrl);
         log.info("DEBUG URL BACKEND: '{}'", this.backendUrl);
 
