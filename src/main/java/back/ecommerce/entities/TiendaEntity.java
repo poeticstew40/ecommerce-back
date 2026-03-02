@@ -43,12 +43,12 @@ public class TiendaEntity {
     @Column(columnDefinition = "double default 0.0")
     private Double costoEnvio = 0.0;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "tienda_banners", joinColumns = @JoinColumn(name = "tienda_id"))
     @Column(name = "banner_url")
     private List<String> banners = new ArrayList<>();
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vendedor_dni")
     private UsuariosEntity vendedor;
 
@@ -63,4 +63,7 @@ public class TiendaEntity {
     @OneToMany(mappedBy = "tienda", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference("tienda-pedido")
     private List<PedidosEntity> pedidos;
+
+    @org.hibernate.annotations.Formula("(SELECT COUNT(*) FROM productos p WHERE p.tienda_id = id AND p.activo = true)")
+    private Integer cantidadProductosActivos;
 }

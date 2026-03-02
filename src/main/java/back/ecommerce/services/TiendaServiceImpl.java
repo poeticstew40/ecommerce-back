@@ -206,7 +206,8 @@ public class TiendaServiceImpl implements TiendaService {
     @Override
     @Transactional(readOnly = true)
     public List<TiendaResponse> readAll() {
-        List<TiendaResponse> tiendas = tiendaRepository.findAll().stream()
+        // Acá usamos el método optimizado que trae todo en un solo viaje
+        List<TiendaResponse> tiendas = tiendaRepository.findAllOptimizadas().stream()
                 .map(this::convertirEntidadAResponse)
                 .collect(Collectors.toList());
 
@@ -216,13 +217,9 @@ public class TiendaServiceImpl implements TiendaService {
     }
 
     private TiendaResponse convertirEntidadAResponse(TiendaEntity entity) {
-        
-        int cantidad = 0;
-        if (entity.getProductos() != null) {
-            cantidad = (int) entity.getProductos().stream()
-                .filter(p -> p.getActivo() != null && p.getActivo()) 
-                .count();
-        }
+        // Sacamos la lógica que recorría los productos en RAM
+        // y usamos el campo precalculado por la base de datos
+        int cantidad = entity.getCantidadProductosActivos() != null ? entity.getCantidadProductosActivos() : 0;
         
         return TiendaResponse.builder()
                 .id(entity.getId())
@@ -234,8 +231,7 @@ public class TiendaServiceImpl implements TiendaService {
                 .vendedorNombre(entity.getVendedor() != null ? entity.getVendedor().getNombre() : null)
                 .banners(entity.getBanners())
                 .costoEnvio(entity.getCostoEnvio())
-                .cantidadProductos(cantidad)
+                .cantidadProductos(cantidad) // Asignamos directo
                 .build();
     }
-
 }
